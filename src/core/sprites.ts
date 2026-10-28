@@ -185,6 +185,32 @@ const ART: Record<string, string[]> = {
     'uuuuuuuuuuuuuuuu', '..yyyyyyyyyyyz', '..yccyyyyklkyz', '..y1cyyyyklkyz', '..yyyyyyyklkyz', '..yyyyyyykmkyz',
     '..zzzzzzzklkzz', '..nnnnnnnnnnnn',
   ],
+  // ---------- village ----------
+  bush: [
+    '', '', '....iiiiiiii', '..iijjiiiiiiii', '.iijjiieiiiiaii', '.iiiiiiiiiiiiii', 'iieiiiiijjiiiiii', 'iiiiiiaiiiiieiii',
+    'iiijjiiiiiiiiiii', 'hiiiiieiiiiaiiih', '.hiiiiiiiiiiiih', '..hhiiiiiiiihh', '....hhhhhhhh',
+  ],
+  fountain: [
+    '', '.......cc', '......c77c', '.......cc', '.......ss', '......cccc', '.....c7cc7c', '..rrrrrrrrrrrr', '.rssssssssssssr',
+    '.rccc7cccc7cccr', '.rcc7ccccc7cccr', '.rssssssssssssr', '..rrrrrrrrrrrr', '...oooooooooo',
+  ],
+  balloons: [
+    '..88.......cc', '.8788.....c7cc', '.8888..aa.cccc', '..88..a7aa.cc', '...0..aaaa.0', '....0..aa.0', '.....0.0.0',
+    '......000', '.......0', '.......0', '......444', '.....44444',
+  ],
+  // ---------- costumes: drawn over the hero's 16x16 frame (hats on the screen's top edge, sword in the right hand, shield in the left) ----------
+  partyhat: ['.......a', '......e8e', '.....8e8e8'],
+  wizardhat: ['.......d', '......dad', '....dddddddd'],
+  goldcrown: ['....a..aa..a', '....aaaaaaaa', '....a8acca8a'],
+  woodsword: ['', '', '', '..............q', '..............q', '..............q', '..............q', '..............q',
+    '..............q', '..............q', '.............444', '..............4', '..............4'],
+  ironsword: ['', '', '..............7', '..............6', '..............6', '..............6', '..............6', '..............6',
+    '..............6', '..............6', '.............555', '..............4', '..............a'],
+  flamesword: ['', '', '..............a', '..............9', '..............8', '..............9', '..............8', '..............9',
+    '..............8', '..............9', '.............222', '..............2', '..............a'],
+  woodshield: ['', '', '', '', '', '', '', '', '.444', '4ppp4', '4pqp4', '4ppp4', '.4p4', '..4'],
+  shell: ['', '', '', '', '', '', '', '', '.bbb', 'b3b3b', '3b3b3', 'b3b3b', '.333'],
+  starshield: ['', '', '', '', '', '', '', '', 'ccccc', 'c7a7c', 'caaac', 'c7a7c', '.ccc', '..c'],
 };
 
 // characters built from the people templates: [template, slot colors as "H R T K B"]
@@ -200,6 +226,7 @@ const CAST: Record<string, [string, string]> = {
   teacher: ['long', '5 3 6 f'], nine: ['folk', 'a 9 4 f'],
   keeper: ['hood', '2 6 d f'], bard: ['hat', 'e 2 9 f'], ayla: ['long', 'd 1 a f'], explorer: ['hat', '9 4 5 f'],
   mason: ['folk', '6 5 4 f'], sailor: ['folk', '1 c 7 f'],
+  tailor: ['long', 'e 2 a f'], sensei: ['hood', '7 8 0 f'], jester: ['sage', 'e a 8 f f'],
 };
 
 // gate bosses: their species' art in new colors ("from:to" palette swaps) plus marks of their own
@@ -260,11 +287,12 @@ const paint = (rows: string[], color: (ch: string) => string) => rows.map(r => [
 const mix = (a: string, b: string, t: number) =>
   '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('');
 // map scenery is drawn pre-shaded; characters, monsters and items get a dark outline, lit from the top left
-const SCENERY = new Set(['pine', 'oak', 'reed', 'boulder', 'brick', 'house', 'door', 'portal']);
+const SCENERY = new Set(['pine', 'oak', 'reed', 'boulder', 'brick', 'house', 'door', 'portal', 'bush']);
+const OUTLINE = '#1a1220';
 function pixels(name: string): string[][] {
   const g = grid(name), on = (x: number, y: number) => (g[y]?.[x] ?? '.') !== '.', fx = !SCENERY.has(name);
   return Array.from({ length: 16 }, (_, y) => Array.from({ length: 16 }, (_, x) => {
-    if (!on(x, y)) return fx && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) ? '#1a1220' : '';
+    if (!on(x, y)) return fx && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) ? OUTLINE : '';
     const c = PAL[g[y][x]];
     if (!fx) return c;
     return !on(x, y - 1) || !on(x - 1, y) ? mix(c, '#ffffff', .28) : !on(x, y + 1) || !on(x + 1, y) ? mix(c, '#000000', .3) : c;
@@ -274,6 +302,17 @@ const cache = new Map<string, string>();
 function sprite(name: string): string {
   let url = cache.get(name);
   if (!url) cache.set(name, (url = svg(pixels(name))));
+  return url;
+}
+// the hero wearing costumes: item pixels over the hero's; an item's outline only lands on empty space
+function outfit(items: string[]): string {
+  const key = ['hero', ...items].join('+');
+  let url = cache.get(key);
+  if (!url) {
+    const px = pixels('hero');
+    for (const it of items) pixels(it).forEach((row, y) => row.forEach((c, x) => { if (c && (c !== OUTLINE || !px[y][x])) px[y][x] = c; }));
+    cache.set(key, (url = svg(px)));
+  }
   return url;
 }
 
@@ -354,4 +393,4 @@ function groundTiles(g: Ground): Record<string, string> {
 const TEMPLATES = new Set(Object.values(CAST).map(c => c[0]));
 const NAMES = [...Object.keys(ART).filter(n => !TEMPLATES.has(n)), ...Object.keys(CAST), ...Object.keys(BOSS)];
 
-export { sprite, grid, pixels, groundTiles, PAL, NAMES };
+export { sprite, outfit, grid, pixels, groundTiles, PAL, NAMES };

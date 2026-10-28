@@ -365,7 +365,7 @@ class Run {
 const HEAD: Record<string, SpellId> = { h: 'hjkl', j: 'hjkl', k: 'hjkl', l: 'hjkl', w: 'words', b: 'words', e: 'words', 0: 'edges', '^': 'edges', $: 'edges',
   G: 'counts', g: 'counts', f: 'find', F: 'find', t: 'find', T: 'find', ';': 'find', ',': 'find', x: 'x', X: 'x', i: 'hjkl', a: 'insert',
   I: 'lines', A: 'lines', o: 'lines', O: 'lines', J: 'lines', D: 'motions', C: 'change', s: 'change', S: 'change',
-  r: 'replace', '~': 'replace', p: 'yank', P: 'yank', u: 'dot', '.': 'dot', '%': 'around' };
+  r: 'replace', '~': 'replace', p: 'yank', P: 'yank', u: 'hjkl', '.': 'dot', '%': 'around' };
 const OPS: Record<string, SpellId> = { d: 'delete', c: 'change', y: 'yank' };
 function needs(cmd: string): SpellId[] {
   const [, n1, op, n2, h] = cmd.match(/^([1-9]\d*)?([dcy])?([1-9]\d*)?(.?)/)!;
@@ -384,8 +384,8 @@ const M = 'I. The Meadow — movement', W = 'II. The Workshop — editing', O = 
 const LEVELS: Lesson[] = [
   {
     id: 'hjkl', world: M, title: 'Modes and first steps',
-    learn: 'vim has two modes. In NORMAL mode every key is a command: h j k l move the cursor. i switches to INSERT mode, where keys type text, and Esc brings you back to NORMAL. Walk to each gap, press i, type the missing letter, then Esc.',
-    keys: [['h', 'left'], ['j', 'down'], ['k', 'up'], ['l', 'right'], ['i', 'insert mode'], ['Esc', 'normal mode']],
+    learn: 'vim has two modes. In NORMAL mode every key is a command: h j k l move the cursor. i switches to INSERT mode, where keys type text, and Esc brings you back to NORMAL. Walk to each gap, press i, type the missing letter, then Esc. Made a mistake? u undoes it, and it works the whole game.',
+    keys: [['h', 'left'], ['j', 'down'], ['k', 'up'], ['l', 'right'], ['i', 'insert mode'], ['Esc', 'normal mode'], ['u', 'undo']],
     start: 'hlp the\nhro\nfx it',
     goal: 'help the\nhero\nfix it',
     par: 12, solution: 'lie<Esc>jie<Esc>jii<Esc>',
@@ -504,8 +504,8 @@ const LEVELS: Lesson[] = [
   },
   {
     id: 'dot', world: O, title: 'Echoes',
-    learn: '. repeats your last change, the most powerful key in vim. Change one foo, then jump to the next and press . — made a mistake? u undoes.',
-    keys: [['.', 'repeat change'], ['u', 'undo']],
+    learn: '. repeats your last change, the most powerful key in vim. Change one foo, then jump to the next and press . — and u still undoes.',
+    keys: [['.', 'repeat change']],
     start: 'foo = foo + foo * foo',
     goal: 'bar = bar + bar * bar',
     par: 15, solution: 'cwbar<Esc>ff.ff.ff.',
