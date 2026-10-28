@@ -7,13 +7,14 @@
 //              M / W  roaming monster patrolling horizontally / vertically
 // Sprite names (spr, wall, roamer) come from sprites.ts.
 import type { SpellId } from './engine.ts';
+import type { Ground } from './sprites.ts';
 // text in both languages: [english, spanish]
 export type Tx = [en: string, es: string];
 // a story line: [sprite, speaker, text]. sprite 'hero' speaks with the player's name, '' is the narrator
 export type Line = [spr: string, who: Tx | '', text: Tx];
 export interface Person { spr: string; name: Tx; say: Tx[] }
 export interface Chapter {
-  name: Tx; floor: string; wall: string; roamer: string;
+  name: Tx; ground: Ground; wall: string; roamer: string;
   intro: Line[]; map: string[]; levels: SpellId[]; sages: Person[]; npcs: Person[];
 }
 export interface Monster { spr: string; name: Tx; taunt: Tx }
@@ -158,7 +159,7 @@ const MAPS: string[][] = [
 
 const CHAPTERS: Chapter[] = [
   {
-    name: ['Chapter I — Hjkl Village', 'Capítulo I — Aldea Hjkl'], floor: '#4a7c3a', wall: 'pine', roamer: 'rat',
+    name: ['Chapter I — Hjkl Village', 'Capítulo I — Aldea Hjkl'], ground: { kind: 'grass', ramp: ['#2f5d2a', '#3f7a34', '#5a9a40', '#8cc152'], flowers: true }, wall: 'pine', roamer: 'rat',
     intro: [
       ['', '', ['THE YEAR IS 198X. In the 8-bit kingdom of TEXTORIA, every word was typed by hand on glowing green screens.',
         'CORRE EL AÑO 198X. En el reino de 8 bits de TEXTORIA, cada palabra se escribía a mano en brillantes pantallas verdes.']],
@@ -166,8 +167,12 @@ const CHAPTERS: Chapter[] = [
         'Entonces el DR. CLICKER salió de su LABORATORIO DEL RATÓN. Un doble clic, y cayó la MALDICIÓN DE LAS FLECHAS: las manos huyeron de la fila guía y las palabras empezaron a pudrirse.']],
       ['', '', ['Only one cursor still blinks in Hjkl Village. Its name is PROMPT. PRESS START... I mean, Enter.',
         'Solo un cursor sigue parpadeando en la Aldea Hjkl. Se llama PROMPT. PULSA START... digo, Enter.']],
-      ['hero', '', ['Rats roam the village and move every time I act. Ctrl-o takes me back to the last sage. First stop: Elder Hjkl!',
-        'Las ratas recorren la aldea y se mueven cada vez que actúo. Ctrl-o me lleva al último sabio. Primera parada: ¡el Anciano Hjkl!']],
+      ['elder', ['Elder Hjkl', 'Anciano Hjkl'], ['PROMPT, over here! We ELDERS are the sages of Textoria, and we still remember the old keys. Each of us guards one command.',
+        '¡PROMPT, aquí! Los ANCIANOS somos los sabios de Textoria y aún recordamos las viejas teclas. Cada uno de nosotros guarda un comando.']],
+      ['elder', ['Elder Hjkl', 'Anciano Hjkl'], ['Walk into a sage and they will teach you a new command. That command is the weakness of the monster guarding the road ahead: no lesson, no victory.',
+        'Camina hacia un sabio y te enseñará un comando nuevo. Ese comando es la debilidad del monstruo que vigila el camino: sin lección, no hay victoria.']],
+      ['hero', '', ['Find a sage, learn the command, beat the monster, repeat. Rats roam the village and attack if they touch me. Ctrl-o takes me back to the last sage. First stop: Elder Hjkl!',
+        'Buscar un sabio, aprender el comando, vencer al monstruo, repetir. Las ratas recorren la aldea y atacan si me tocan. Ctrl-o me lleva al último sabio. Primera parada: ¡el Anciano Hjkl!']],
       ['', '', ['TIP: type : for the command line. :help lists every command and setting, :quest tells you where to go.',
         'CONSEJO: escribe : para la línea de comandos. :help muestra comandos y ajustes, :quest te dice adónde ir.']],
     ],
@@ -175,8 +180,9 @@ const CHAPTERS: Chapter[] = [
     levels: ['hjkl', 'words', 'edges'],
     sages: [
       { spr: 'elder', name: ['Elder Hjkl', 'Anciano Hjkl'], say: [
-        ['It\'s dangerous to click alone! Take this: h j k l. A true hero never leaves the home row.', '¡Es peligroso hacer clic solo! Toma esto: h j k l. Un verdadero héroe nunca abandona la fila guía.'],
-        ['The Arrow Rat guards the river road. Beat it at its own game: grab every ★ gem first.', 'La Rata Flecha vigila el camino del río. Gánale en su propio juego: atrapa cada gema ★ primero.'],
+        ['It\'s dangerous to click alone! Take this: h j k l to move, i to write, Esc to stop writing. A true hero never leaves the home row.', '¡Es peligroso hacer clic solo! Toma esto: h j k l para moverte, i para escribir, Esc para dejar de escribir. Un verdadero héroe nunca abandona la fila guía.'],
+        ['Remember the two modes. NORMAL mode moves you, INSERT mode types. The word at the bottom of the screen tells you where you are.', 'Recuerda los dos modos. El modo NORMAL te mueve, el modo INSERTAR escribe. La palabra al pie de la pantalla te dice dónde estás.'],
+        ['The Arrow Rat guards the river road and nibbles letters out of words. Walk to each gap, press i, type the letter back, then Esc.', 'La Rata Flecha vigila el camino del río y roe letras de las palabras. Camina a cada hueco, pulsa i, escribe la letra y luego Esc.'],
       ] },
       { spr: 'wanderer', name: ['Wanderer Wen', 'Viajero Wen'], say: [
         ['That river can\'t be walked. But see the stepping-stones? Each one is a WORD.', 'Ese río no se puede caminar. ¿Ves las piedras? Cada una es una PALABRA.'],
@@ -204,7 +210,7 @@ const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    name: ['Chapter II — The Counting Fields', 'Capítulo II — Los Campos Contados'], floor: '#7a8f3a', wall: 'oak', roamer: 'boar',
+    name: ['Chapter II — The Counting Fields', 'Capítulo II — Los Campos Contados'], ground: { kind: 'grass', ramp: ['#6a6526', '#8c8634', '#ada646', '#dcd06c'], flowers: true }, wall: 'oak', roamer: 'boar',
     intro: [
       ['', '', ['STAGE 2. Golden 8-bit fields stretch east. Wild boars charge down every path.', 'NIVEL 2. Campos dorados de 8 bits se extienden al este. Jabalíes salvajes cargan por cada sendero.']],
       ['hero', '', ['The boars move each time I act... if I cover many steps in ONE command, they\'ll never catch me.', 'Los jabalíes se mueven cada vez que actúo... si recorro muchos pasos en UN comando, nunca me atraparán.']],
@@ -237,7 +243,7 @@ const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    name: ['Chapter III — Typo Swamp', 'Capítulo III — Pantano Errata'], floor: '#3c5a45', wall: 'reed', roamer: 'mosquito',
+    name: ['Chapter III — Typo Swamp', 'Capítulo III — Pantano Errata'], ground: { kind: 'grass', ramp: ['#22392b', '#2e4d38', '#41684a', '#6a9460'], water: ['#16302c', '#21473f', '#376a5c', '#86b8a4'] }, wall: 'reed', roamer: 'mosquito',
     intro: [
       ['', '', ['STAGE 3. A swamp where words go to rot. Dr. Clicker\'s mouse-drag smeared every letter, and typos crawl from the mud.',
         'NIVEL 3. Un pantano donde las palabras se pudren. El arrastre del ratón del Dr. Clicker emborronó cada letra, y las erratas salen del lodo.']],
@@ -248,7 +254,7 @@ const CHAPTERS: Chapter[] = [
     sages: [
       { spr: 'fairy', name: ['Fairy Xie', 'Hada Xie'], say: [
         ['Shh! The Typo Toad feeds on extra letters. Take them away and he starves.', '¡Shh! El Sapo Errata se alimenta de letras de más. Quítaselas y morirá de hambre.'],
-        ['From now on you fight with EDITS. Make your text match the goal, and every letter you fix hurts the monster.', 'Desde ahora luchas con EDICIONES. Haz que tu texto coincida con el objetivo, y cada letra que arregles daña al monstruo.'],
+        ['Until now you typed missing letters in. Here you take extra ones out, and every letter you fix hurts the monster.', 'Hasta ahora escribías las letras que faltaban. Aquí quitas las que sobran, y cada letra que arregles daña al monstruo.'],
       ] },
       { spr: 'djinn', name: ['Djinn Insertus', 'Genio Insertus'], say: [
         ['To speak into the world you must enter INSERT mode...', 'Para hablarle al mundo debes entrar en modo INSERTAR...'],
@@ -273,7 +279,7 @@ const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    name: ['Chapter IV — Operator Caverns', 'Capítulo IV — Cavernas del Operador'], floor: '#4a4540', wall: 'boulder', roamer: 'bat',
+    name: ['Chapter IV — Operator Caverns', 'Capítulo IV — Cavernas del Operador'], ground: { kind: 'rock', ramp: ['#2a2622', '#3b3530', '#514942', '#706559'], water: ['#0c1a33', '#132a52', '#24457c', '#6d9bd0'] }, wall: 'boulder', roamer: 'bat',
     intro: [
       ['', '', ['STAGE 4. Deep under the mountains, the Operator dwarves forge commands from two parts: a VERB and a MOTION.', 'NIVEL 4. Bajo las montañas, los enanos Operadores forjan comandos de dos partes: un VERBO y un MOVIMIENTO.']],
       ['', '', ['d to delete, c to change, and after it any motion you know. The grammar of vim is the grammar of power.', 'd para borrar, c para cambiar, y después cualquier movimiento que conozcas. La gramática de vim es la gramática del poder.']],
@@ -300,7 +306,7 @@ const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    name: ['Chapter V — Dr. Clicker\'s Tower', 'Capítulo V — La Torre del Dr. Clicker'], floor: '#3a3550', wall: 'brick', roamer: 'pointer',
+    name: ['Chapter V — Dr. Clicker\'s Tower', 'Capítulo V — La Torre del Dr. Clicker'], ground: { kind: 'tiles', ramp: ['#1f1b2e', '#2e2944', '#423b5e', '#655d88'] }, wall: 'brick', roamer: 'pointer',
     intro: [
       ['', '', ['FINAL STAGE. At the top of the Tower of Objects, DR. CLICKER waits on his throne of mouse pads, finger on the button. His living pointers patrol every floor.',
         'NIVEL FINAL. En lo alto de la Torre de los Objetos, el DR. CLICKER espera en su trono de alfombrillas, con el dedo en el botón. Sus punteros vivientes patrullan cada piso.']],
@@ -323,11 +329,11 @@ const CHAPTERS: Chapter[] = [
 ];
 
 const MONSTERS: Record<SpellId, Monster> = {
-  hjkl: { spr: 'rat', name: ['Arrow Rat', 'Rata Flecha'], taunt: ['Squeak! Arrow keys forever! You\'ll never catch my gems!', '¡Iiic! ¡Flechas para siempre! ¡Nunca atraparás mis gemas!'] },
+  hjkl: { spr: 'rat', name: ['Arrow Rat', 'Rata Flecha'], taunt: ['Squeak! Arrow keys forever! I nibbled the letters out of your words!', '¡Iiic! ¡Flechas para siempre! ¡Me comí las letras de tus palabras!'] },
   words: { spr: 'bat', name: ['Word Bat', 'Murciélago Verbal'], taunt: ['Skreee! I flutter between words faster than you can blink!', '¡Skriii! ¡Revoloteo entre palabras más rápido de lo que parpadeas!'] },
   edges: { spr: 'snail', name: ['Margin Snail', 'Caracol Margen'], taunt: ['Slooow... I hide my treasures at the ends of lines...', 'Leeento... escondo mis tesoros al final de las líneas...'] },
   counts: { spr: 'boar', name: ['Tally Boar', 'Jabalí Contador'], taunt: ['GRUNT. One step, two steps, ten steps. You\'ll be exhausted before you reach me!', 'GRUÑ. Un paso, dos pasos, diez pasos. ¡Estarás agotado antes de alcanzarme!'] },
-  find: { spr: 'serpent', name: ['Seeker Serpent', 'Serpiente Buscadora'], taunt: ['Sssss... find my starssss if you can...', 'Sssss... encuentra mis estrellassss si puedessss...'] },
+  find: { spr: 'serpent', name: ['Seeker Serpent', 'Serpiente Buscadora'], taunt: ['Sssss... find the missing letterssss if you can...', 'Sssss... encuentra las letras perdidassss si puedessss...'] },
   x: { spr: 'toad', name: ['Typo Toad', 'Sapo Errata'], taunt: ['Ribbbit! I put extra letters everywheree!', '¡Croooac! ¡Pongo letras de más por todass partes!'] },
   insert: { spr: 'goblin', name: ['Gap Goblin', 'Duende Hueco'], taunt: ['Hehehe! I stole letters from your sentences!', '¡Jejeje! ¡Robé letras de tus frases!'] },
   lines: { spr: 'lizard', name: ['Line Lizard', 'Lagarto Lineal'], taunt: ['Semicolons? Comments? I ate them all!', '¿Puntos y coma? ¿Comentarios? ¡Me los comí todos!'] },
@@ -343,6 +349,12 @@ const MONSTERS: Record<SpellId, Monster> = {
     '¡MUAJAJA! Así que el cursorcito aprendió a escribir. Destrocé cada línea de mi torre. ¡Nunca las arreglarás todas! ¡CLIC CLIC CLIC!'] },
 };
 
+// roaming monsters (chapter.roamer sprites) by name
+const ROAMERS: Record<string, Tx> = {
+  rat: ['Sewer Rat', 'Rata de Cloaca'], boar: ['Wild Boar', 'Jabalí Salvaje'], mosquito: ['Swamp Mosquito', 'Mosquito del Pantano'],
+  bat: ['Cave Bat', 'Murciélago de Cueva'], pointer: ['Living Pointer', 'Puntero Viviente'],
+};
+
 const ENDING: Line[] = [
   ['clicker', '', ['DR. CLICKER shatters into a thousand pixels. His mouse pointer flickers... and fades. GAME OVER, doctor.', 'El DR. CLICKER estalla en mil píxeles. Su puntero parpadea... y se apaga. GAME OVER, doctor.']],
   ['', '', ['Across Textoria, hands return to the home row. The words heal. The swamp clears. The fields can be counted again.', 'Por toda Textoria, las manos vuelven a la fila guía. Las palabras sanan. El pantano se aclara. Los campos pueden contarse de nuevo.']],
@@ -350,4 +362,4 @@ const ENDING: Line[] = [
   ['', '', ['THE END. Replay any battle with :train to earn ★★★ on every one. Then try the Vimmer level.', 'FIN. Repite cualquier batalla con :train y consigue ★★★ en todas. Luego prueba el nivel Vimmer.']],
 ];
 
-export { CHAPTERS, MONSTERS, ENDING };
+export { CHAPTERS, MONSTERS, ROAMERS, ENDING };

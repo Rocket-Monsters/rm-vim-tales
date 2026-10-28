@@ -46,6 +46,12 @@ for (const lv of LEVELS) for (let seed = 1; seed <= 6; seed++) {
     assert.equal(run.keys, round.par, `${lv.id} par`);
   }
 }
+assert.equal(new World(CHAPTERS[0]).key('i', upTo('hjkl')).locked, 'battle', 'i must not edit the map');
+{ // walking into a roaming monster starts a fight with that monster
+  const w = new World(CHAPTERS[0]), foe = { r: w.r, c: w.c + 1, dr: 0, dc: 0 };
+  w.roamers = [foe];
+  assert.equal(w.key('l', upTo('hjkl')).foe, foe, 'touching a roamer reports it');
+}
 console.log('ok: generated rounds');
 
 // story maps: equal widths, every level has sage+monster, monsters gate the path in order
@@ -127,9 +133,10 @@ assert.deepEqual(seen, LEVELS.map(l => l.id), 'chapters must cover every level i
 console.log(`ok: ${CHAPTERS.length} chapters`);
 
 // sprites: every sprite the story uses exists and fits 16x16
-import { grid, NAMES } from '../src/core/sprites.ts';
+import { grid, groundTiles, NAMES } from '../src/core/sprites.ts';
 import { UI, LESSONS_ES, fingers } from '../src/ui/i18n.js';
-const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'heart', 'key', 'door', 'portal', 'house', 'boulder', 'tuft', 'water', 'stone', 'path', 'sand'];
+const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'heart', 'key', 'door', 'portal', 'house', 'boulder'];
+for (const ch of CHAPTERS) assert(Object.values(groundTiles(ch.ground)).every(u => u.startsWith('data:image/svg+xml') && !u.includes('undefined')), `${ch.name} ground`);
 for (const n of used) assert(NAMES.includes(n), `sprite ${n} missing`);
 for (const n of NAMES) { const g = grid(n); assert(g.length <= 16 && g.every(r => r.length <= 16), `sprite ${n} bigger than 16x16`); }
 // i18n: Spanish covers every UI string and every lesson key
@@ -144,3 +151,22 @@ assert.deepEqual(fingers('$'), [['$', ['li', 'rp']]]);
 assert.deepEqual(fingers('O'), [['O', ['rr', 'lp']]]);
 assert.deepEqual(fingers('f{c}'), [['f', ['li', null]]]);
 console.log(`ok: ${NAMES.length} sprites, en/es text, fingers`);
+
+// downloaded text: rounds cut from code/quotes still solve (or fall back to built-in text)
+import { useText } from '../src/core/game.ts';
+import { usable, wrap } from '../src/core/text.ts';
+assert.deepEqual(wrap('a  b\nc'), ['a b c']);
+assert(wrap('x'.repeat(10) + ' y'.repeat(40)).every(l => l.length <= 44));
+assert(!usable('\tif (x) {') && !usable('short') && usable('let mut n = arr.len();'));
+const SNIPS = ['let mut n = arr.len();', 'for i in 0..n - 1 {', 'if arr[i] > arr[i + 1] {', 'def bubble_sort(items: list) -> list:',
+  'return $this->items[$i] ?? null;', 'std::vector<int> v = {3, 1, 2};', 'public static int Max(int a, int b)', 'const mid = Math.floor((lo + hi) / 2);'];
+useText(SNIPS, true);
+for (const lv of LEVELS) for (let seed = 1; seed <= 4; seed++) {
+  const R = rng(seed);
+  for (let d = 1; d < ROUNDS; d++) {
+    const round = makeRound(lv.id, R, d, upTo(lv.id)), run = playGated(round, upTo(lv.id));
+    assert(run.done, `code ${lv.id} seed ${seed} round ${d} unsolved:\n${run.vim.text}\n--- goal\n${round.goal}`);
+  }
+}
+useText(null);
+console.log('ok: downloaded text rounds');

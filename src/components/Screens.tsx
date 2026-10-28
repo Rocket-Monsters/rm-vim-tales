@@ -23,6 +23,13 @@ export default function Screens() {
         </div>
         <p class="help" id="wHelp" />
       </div>
+      <div id="index" class="screen" hidden>
+        <div class="win idx">
+          <div class="idx-list" id="iList" />
+          <div class="idx-page" id="iPage" />
+        </div>
+        <p class="help" id="iHelp" />
+      </div>
       <div id="dojo" class="screen" hidden>
         <div class="win wiz">
           <div id="dStat" />
