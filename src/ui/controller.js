@@ -524,6 +524,11 @@ export function startGame() {
       case 'new!':
         if (B) endBattle();
         return showMenu('name');
+      // dev only (bun run dev): :ch 5 jumps to chapter V; stripped from the build
+      case 'ch':
+        if (!import.meta.env.DEV || B) return err(T().notCmd(c));
+        if (!CHAPTERS[arg - 1]) return err(`:ch 1-${CHAPTERS.length}`);
+        S.ch = arg - 2; return nextChapter();
       default: return err(T().notCmd(c));
     }
   }
