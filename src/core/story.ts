@@ -4,6 +4,7 @@
 //              o  island (walkable, blank for w/b/e: reach it with fo / Fo / ;)
 //              $ treasure  % heart  + key  | door (needs a key)  > exit  @ start
 //              & villager   a-e sage teaching chapter.levels[i]   A-E monster guarding that level's battle
+//              L  lore keeper: tells chapter.lore[i] (i = reading order) and adds it to the :lore journal
 //              M / W  roaming monster patrolling horizontally / vertically
 // Sprite names (spr, wall, roamer) come from sprites.ts.
 import type { SpellId } from './engine.ts';
@@ -13,24 +14,26 @@ export type Tx = [en: string, es: string];
 // a story line: [sprite, speaker, text]. sprite 'hero' speaks with the player's name, '' is the narrator
 export type Line = [spr: string, who: Tx | '', text: Tx];
 export interface Person { spr: string; name: Tx; say: Tx[] }
+// a page of Textoria's history: collected once per save, read back with :lore (later: trivia, weapon unlocks)
+export interface Lore { spr: string; name: Tx; title: Tx; fact: Tx }
 export interface Chapter {
   name: Tx; ground: Ground; wall: string; roamer: string;
-  intro: Line[]; map: string[]; levels: SpellId[]; sages: Person[]; npcs: Person[];
+  intro: Line[]; map: string[]; levels: SpellId[]; sages: Person[]; npcs: Person[]; lore: Lore[];
 }
 export interface Monster { spr: string; name: Tx; taunt: Tx }
 
 const MAPS: string[][] = [
   [
     '################################################################################',
-    '#H  &   #     $#    M         #    $   #   #      #    $#        #         $   #',
+    '#H  &   #     $#    M         #    $   # L #      #    $#        #         $   #',
     '#  @ a  #  ##  #  ####  ####  #  ###   #   #  ##  #  ####  ####  #  ######  ## #',
     '#       #  #   #     #     #  #    #          ##        #     #     #    #     #',
     '#  ###     #####  #  #  #  #     #  +  #####  #   ###   #  #  #  #####  #  #   #',
     '#  #$#  M         #     #  ####  #     ##     #     #      #     #   M  #  ### #',
     '#       ####  &   #######        #|##  ##  $  ####  #  M   ####  #   ####    $ #',
     '#H  $      #           M         #$ #  ##          #           %#              #',
-    '####A###########################################################################',
-    '#  b  &  ~~~~~~~~~~~~~~~~~~~~          #      ~~~~~~~~~~~~~~~~~~~~~~~~~~~      #',
+    '############################################################################A###',
+    '#  L  &  ~~~~~~~~~~~~~~~~~~~~          #      ~~~~~~~~~~~~~~~~~~~~~~~~~~~ b    #',
     '#        ~~~~~~~~~~~~~~~~~~~~          #      =~~~=~~~~=~~~$~~~=~~~=~~~~=      #',
     '#   %    ==~~~~~$~~~~==~~~~~~          #      ~~~~~~~~~~~~~~~~~~~~~~~~~~~  $   #',
     '#        ~~~~~~~~~~~~~~~~~~~~    $            ==~~==~~~==~~~~~=~~~==~~~==      #',
@@ -54,7 +57,7 @@ const MAPS: string[][] = [
     '$#######################################################################',
     '  $#####################################################################',
     '########################################################################',
-    '#@  a       #           #     &    #  $               M                #',
+    '#@  a       #           #     &    #  $               M               L#',
     '#           #   ####    #          #                                   #',
     '#     M         #  #  M #  ######  ################################    #',
     '#  ######       # $#    #  #       #                    M              #',
@@ -63,15 +66,15 @@ const MAPS: string[][] = [
     '#  ######    #                                  M                      #',
     '#            #  M       #     W    #                                 $ #',
     '   .   &     #          #          #                      M       %    #',
-    '#################A######################################################',
-    '#  b                      &                                            #',
+    '######################################################################A#',
+    '#                         &                                         b  #',
     '#~~~o~~~~~~~~o~~~~~~~~~~~~~$~~~~~~~#~~~~o~~~~~~~~~o~~~~~~~~~~$~~~~o~~~~#',
     '#~~~~~~~~~~~~o~~~~~$~~~~~o~~~~~~~~~#~~~~~~~~~~~~~~o~~~~~~~~~~~~~~~o~~~~#',
     '#~~~~~~~~~~~~~~~~~~~~~~~~o~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~$~~~~~~~~~o~~~~#',
-    '#~~~~~~~o~~~~~~~~~~~~~~~~o~~~~~~$~~#~~~~~~~~o~~~~~~~~~~~~~~~~~~~~~o~~~~#',
+    '#~~~~~~~o~~~~~~~~~~~~~~~~L~~~~~~$~~#~~~~~~~~o~~~~~~~~~~~~~~~~~~~~~o~~~~#',
     '#~~~~~~~o~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~o~~~~~~~~~~~~~~~~~~~~~~~~~~#',
     '#~~~~~~~o~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~$~~~~o~~~~~~~~~~~~~~~~~~~~~~~~~~#',
-    '#       B                          #####################################',
+    '#       #                          #########B###########################',
     '#  $                        >                 $             $          #',
     '########################################################################',
   ],
@@ -81,11 +84,11 @@ const MAPS: string[][] = [
     '#       ~~~~   #   ######   ####   #    #         ~~~~    #####        #',
     '#  &    ~~==== #   #    #   #  #   #    #    +    ~~~~    #            #',
     '#       ~~~~   #   # $  #   #+ #   #    #         ~~~~    | $          #',
-    '#####   ~~~~       #    #                         ~~~~    #            #',
+    '#####   ~~~~       #    #                         =~~=    #            #',
     '#   #          M   ###  #####  ### #    #         ~~~~    #####        #',
     '# $ |      ~~~~~~           & #$#  #    #    M    ~~~~             $   #',
     '#   #      ~~~~~~      M      # #  #    #         ~~~~                 #',
-    '##################A#####################################################',
+    '####################################################################A###',
     '#  b             &                                                     #',
     '#~~~~o~~~~~~==~~~~~~=~~~~~~$~~~~~~~#~~~~~~=~~~~~~~~~~~~~~~~~~~=~~~~~~~~#',
     '#~~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~#~~~~~~=~~~~~~~~~~~~~~~~~~~=~~~~~~~~#',
@@ -93,11 +96,11 @@ const MAPS: string[][] = [
     '#~~~~~~~o~~~~~~~~~~~~~~~~~~~~=~~~~~#~~~~~~=~~~~~~~~~~~~~~~~~~~=~~~~~~~~#',
     '#~~~~~~~o~~~~~~$~~~~~~~~~~~~~=~~~~~#~~~~~~=~~~~~~~~~~~~~~~~~~~=~~~~~~~~#',
     '#~~~~~~~~~~~~~~~~~~~~~~~~~~~~=~~~~~#~~~~~~=~~~~~~~~~~~~~~~~~~~=~~~~~~~~#',
-    '#           %                   &  #######$###################%#########',
-    '######B#################################################################',
+    '#L          %                   &  #######$################### #########',
+    '##############################################################B#########',
     '#  c                                            $                      #',
     '################ #######################################################',
-    '#    $   M          M         $             M          $        M      #',
+    '#    $   M          M         $             M          $        M     L#',
     '################ #######################################################',
     '#  M         M              M   +        M          M             $    #',
     '################ #######################################################',
@@ -116,16 +119,16 @@ const MAPS: string[][] = [
     '#  ^^^^^^^^^      ^^^^^      ^ $ #  $   ^            ^^^^       ^  #',
     '#        M           W       ^   #          ^   M                  #',
     '#   %          ^^^          $^   #      ^^                $    ^   #',
-    '##############A#####################################################',
+    '################################################################A###',
     '#  b         &                                                     #',
     '#~~~~~~~o~~~~~~~~~~~~~==~~~~~~~~~#~~~~o~~~~~~~~~~~==~~~~~~~~~~o~~~~#',
     '#~~~~~~~~~~~~~~~~~~~~~~=~~~~~~~$~#~~~~o~~~~~~~$~~~~=~~~~~~~~~~o~~~~#',
     '#~~~o~~~~~~~~~~~~~~~~~~=~~~~~~~~~#~~~~~~~~~~~~~~~~~=~~~~~~~~~~o~~~~#',
     '#~~~o~~~~~$~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~o~~~~~~~~~~~$~~~~~o~~~~#',
-    '#~~~o~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~o~~~~~~~~~~~~~~~~~o~~~~#',
-    '#   B                            ###################################',
+    '#~~~L~~~~~~~~~~~~~~~~~~~~~~~~~~~~#~~~~~~~~~~o~~~~~~~~~~~~~~~~~o~~~~#',
+    '#   #                                       B#######################',
     '###########c################  ######################################',
-    '#=  M      $      M        M            M       $      M         = #',
+    '#=  M      $      M        M            M       $      M         =L#',
     '# ##################################################################',
     '# $   M         M        M   =        $      M            M      $ #',
     '#############################C######################################',
@@ -135,21 +138,21 @@ const MAPS: string[][] = [
   [
     '############################################################',
     '#     ^^^^^             $    #      ^^^           $        #',
-    '#  E  ^^^^^      e                        M                #',
+    '#  E  ^^^^^      e                        M               L#',
     '#     M          M           #      ^^^                %   #',
     '###########################D################################',
     '#     W           W          #        W           W        #',
     '#d        ^^^   $   ^^^           ^^^       $       ^^^    #',
     '#  $        W           W    #                          $  #',
-    '##C#########################################################',
-    '#   ~~~~~~~~~~~~~~~~~~       #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#',
+    '######################################################C#####',
+    '#   ~~~L~~~~~~~~~~~~~~       #~~~~~~~~~~~~~~~~~~~~~~~~o~~~~#',
     '#   o~~o~~~~~o~~~~~o~~  c     ~~~o~~~~~o~~~~~~$~~~~~~~o~~~~#',
     '#   ~~~~~~~~~$~~~~~~~~       #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#',
     '##########################B#################################',
     '#      ~~~~~~~~~~~      $    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#',
     '#  b   ~~=~~==~~~=   M        =~~=~~~=~~$=~~~=~~=~~~~=     #',
-    '#   %  ~~~~~~~~~~~           #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#',
-    '###A########################################################',
+    '#   %  ~~~~~~~~~~~           #~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~#',
+    '#########################################################A##',
     '#   $        M                        M               $    #',
     '#   ^^^^^^^^^^^^^^^^^^^^^    #  ^^^^^^^^^^^^^^^^^^^^^^     #',
     '#@  a      M          $      #    $         M              #',
@@ -208,6 +211,10 @@ const CHAPTERS: Chapter[] = [
         ['Some stones lead nowhere. Stuck out there? Leap back with b.', 'Algunas piedras no llevan a ninguna parte. ¿Atascado? Salta atrás con b.'],
       ] },
     ],
+    lore: [
+      { spr: 'keeper', name: ['Archivist Ada', 'Archivista Ada'], title: ['The First Word', 'La primera palabra'], fact: ['Textoria began as one blinking cursor on an empty line. The first word ever typed here was \'hello\', and every village since was written by hand, letter by letter.', 'Textoria empezó como un cursor parpadeando en una línea vacía. La primera palabra que se escribió aquí fue \'hello\', y desde entonces cada aldea se escribió a mano, letra a letra.'] },
+      { spr: 'bard', name: ['Bard Kay', 'Bardo Kay'], title: ['The Home Row Oath', 'El juramento de la fila guía'], fact: ['The ELDERS swore an oath on the home row: a s d f, j k l ;. While one hand rests there, the words cannot rot. Dr. Clicker has hated that row ever since.', 'Los ANCIANOS juraron sobre la fila guía: a s d f, j k l ñ. Mientras una mano descanse ahí, las palabras no se pudren. El Dr. Clicker odia esa fila desde entonces.'] },
+    ],
   },
   {
     name: ['Chapter II — The Counting Fields', 'Capítulo II — Los Campos Contados'], ground: { kind: 'grass', ramp: ['#6a6526', '#8c8634', '#ada646', '#dcd06c'], flowers: true }, wall: 'oak', roamer: 'boar',
@@ -240,6 +247,10 @@ const CHAPTERS: Chapter[] = [
         ['My boat sank in the curse. Islands everywhere and nothing to row with.', 'Mi barca se hundió con la maldición. Islas por todas partes y nada con qué remar.'],
         ['Remember: ; repeats your last find. Island to island to island.', 'Recuerda: ; repite tu última búsqueda. De isla en isla en isla.'],
       ] },
+    ],
+    lore: [
+      { spr: 'keeper', name: ['Hermit Ten', 'Ermitaño Diez'], title: ['Fields of Lines', 'Campos de líneas'], fact: ['Farmers here count fields in lines, not acres. Line 1 belonged to King Bram himself, which is why the oldest treasure is buried up there.', 'Aquí los granjeros cuentan los campos en líneas, no en hectáreas. La línea 1 era del propio Rey Bram; por eso el tesoro más antiguo está enterrado allí arriba.'] },
+      { spr: 'bard', name: ['Drover Pia', 'Arriera Pía'], title: ['Clive the Scribe', 'Clive el escriba'], fact: ['Dr. Clicker was once a royal scribe named Clive. He grew tired of typing and built a little machine with a single button. He called it the MOUSE.', 'El Dr. Clicker fue una vez un escriba real llamado Clive. Se cansó de escribir y construyó una maquinita con un solo botón. La llamó el RATÓN.'] },
     ],
   },
   {
@@ -277,6 +288,10 @@ const CHAPTERS: Chapter[] = [
         ['Every second I stay in insert mode I forget a spell. Esc! Esc! Esc!', 'Cada segundo en modo insertar olvido un hechizo. ¡Esc! ¡Esc! ¡Esc!'],
       ] },
     ],
+    lore: [
+      { spr: 'keeper', name: ['Swamp Scribe Oz', 'Escriba Oz'], title: ['The First Typo', 'La primera errata'], fact: ['Clive dragged a word across this swamp with his mouse and smeared it. That smudge was the first typo, and the toads have fed on it ever since.', 'Clive arrastró una palabra por este pantano con su ratón y la emborronó. Ese borrón fue la primera errata, y los sapos se alimentan de ella desde entonces.'] },
+      { spr: 'bard', name: ['Lamplighter Ru', 'Farolera Ru'], title: ['The King Who Forgot Esc', 'El rey que olvidó Esc'], fact: ['Djinn Insertus taught the old kings two modes. One king forgot Esc and typed his own name for a hundred years. His name still fills a page in the castle.', 'El Genio Insertus enseñó dos modos a los antiguos reyes. Un rey olvidó Esc y escribió su propio nombre durante cien años. Su nombre aún llena una página del castillo.'] },
+    ],
   },
   {
     name: ['Chapter IV — Operator Caverns', 'Capítulo IV — Cavernas del Operador'], ground: { kind: 'rock', ramp: ['#2a2622', '#3b3530', '#514942', '#706559'], water: ['#0c1a33', '#132a52', '#24457c', '#6d9bd0'] }, wall: 'boulder', roamer: 'bat',
@@ -304,6 +319,10 @@ const CHAPTERS: Chapter[] = [
       { spr: 'miner', name: ['Miner', 'Minero'], say: [['Those bats fly in straight lines. Dumb bats. Smart cursors jump.', 'Esos murciélagos vuelan en línea recta. Murciélagos tontos. Los cursores listos saltan.']] },
       { spr: 'hermit', name: ['Hermit', 'Ermitaño'], say: [['I came down here to escape the mouse. Now I delete whole lines with two keys. dd. Beautiful.', 'Bajé aquí para escapar del ratón. Ahora borro líneas enteras con dos teclas. dd. Precioso.']] },
     ],
+    lore: [
+      { spr: 'keeper', name: ['Echo Miner Ivo', 'Minero Ivo'], title: ['The Operator Pact', 'El pacto del operador'], fact: ['The dwarves never cut a word without naming the motion first. \'Verb, then where,\' they chant. A mouse can only point; it can never name a motion.', 'Los enanos nunca cortan una palabra sin nombrar antes el movimiento. \'Verbo, y luego dónde\', cantan. Un ratón solo puede señalar; nunca nombra un movimiento.'] },
+      { spr: 'bard', name: ['Bat Whisperer Lu', 'Susurradora Lu'], title: ['The Arrow Curse', 'La Maldición de las Flechas'], fact: ['Clive froze the arrow keys because he feared the home row. A hand that stays on h j k l can never be dragged back to the mouse.', 'Clive congeló las flechas porque temía a la fila guía. Una mano que se queda en h j k l nunca puede ser arrastrada de vuelta al ratón.'] },
+    ],
   },
   {
     name: ['Chapter V — Dr. Clicker\'s Tower', 'Capítulo V — La Torre del Dr. Clicker'], ground: { kind: 'tiles', ramp: ['#1f1b2e', '#2e2944', '#423b5e', '#655d88'] }, wall: 'brick', roamer: 'pointer',
@@ -325,6 +344,10 @@ const CHAPTERS: Chapter[] = [
       ] },
     ],
     npcs: [],
+    lore: [
+      { spr: 'keeper', name: ['Ghost Page Mira', 'Paje Fantasma Mira'], title: ['King Bram\'s Fall', 'La caída del Rey Bram'], fact: ['King Bram refused to trade his keyboard for a mouse. Clive double-clicked the throne, and the king became a ghost of his own tower.', 'El Rey Bram se negó a cambiar su teclado por un ratón. Clive hizo doble clic en el trono y el rey se convirtió en un fantasma de su propia torre.'] },
+      { spr: 'bard', name: ['Treasurer Sol', 'Tesorero Sol'], title: ['The Last Save', 'La última partida guardada'], fact: ['Before he fell, King Bram hid the kingdom\'s last save file in this tower. Whoever defeats Dr. Clicker can restore Textoria from it, every word intact.', 'Antes de caer, el Rey Bram escondió la última partida guardada del reino en esta torre. Quien venza al Dr. Clicker podrá restaurar Textoria con ella, sin perder una palabra.'] },
+    ],
   },
 ];
 

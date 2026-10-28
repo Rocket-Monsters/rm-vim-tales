@@ -26,7 +26,7 @@ export function startGame() {
 
   // ---------- state ----------
   const browserLang = () => (navigator.language || '').startsWith('es') ? 'es' : 'en';
-  const fresh = () => ({ ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false, opened: [], replays: {},
+  const fresh = () => ({ ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false, opened: [], replays: {}, lore: [],
     name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang(), text: null });
   let S = fresh();
   try { S = { ...S, ...JSON.parse(localStorage.getItem(SAVE)) }; } catch {}
@@ -61,6 +61,8 @@ export function startGame() {
       if (S.opened.includes(id)) world.set(r, c, '_');
     });
   }
+  // lore pages heard this save: "<chapter>.L<n>", read back with :lore
+  const loreId = (ch, i) => `${ch + 1}.L${i + 1}`;
   const chestsOpened = () => world.chests.filter((_, i) => S.opened.includes(chestId(i))).length;
   function loadWorld() {
     if (S.lines && shape(S.lines) !== shape(CH().map)) { S.lines = null; S.pos = null; S.spawn = null; }
@@ -112,6 +114,8 @@ export function startGame() {
     if (t === '.') return [rowsAround(r, c).includes('~') ? 'g-isle' : 'g-path' + (v & 1), ''];
     if (OBJ[t]) return [floor + (t === '>' ? ' portal' : ''), img(OBJ[t])];
     if (t === '&') return [floor, img(ch.npcs[world.npcAt[r + ',' + c]].spr)];
+    // a lore keeper you haven't heard yet shows a bouncing "?"
+    if (t === 'L') { const i = world.loreAt[r + ',' + c]; return [floor, img(ch.lore[i].spr) + (S.lore.includes(loreId(S.ch, i)) ? '' : '<b class="talk">?</b>')]; }
     // a sage you haven't talked to yet shows a bouncing "!" over their head
     if (t >= 'a' && t <= 'e') { const i = t.charCodeAt(0) - 97; return [floor, img(ch.sages[i].spr) + (S.learned.includes(ch.levels[i]) ? '' : '<b class="talk">!</b>')]; }
     if (t >= 'A' && t <= 'E') return [floor + ' foe-tile', img(MONSTERS[ch.levels[t.charCodeAt(0) - 65]].spr)];
@@ -230,6 +234,12 @@ export function startGame() {
       return say([taunt], () => startBattle(id, false));
     }
     if (t === '&') { const n = ch.npcs[world.npcAt[r + ',' + c]]; return say(n.say.map(s => person(n, tx(s)))); }
+    if (t === 'L') {
+      const i = world.loreAt[r + ',' + c], p = ch.lore[i], id = loreId(S.ch, i), fresh = !S.lore.includes(id);
+      if (fresh) S.lore.push(id);
+      save(); draw();
+      return say([person(p, `${tx(p.title)}: ${tx(p.fact)}`), ...(fresh ? [[T().lorePage, T().loreGot(tx(p.title), S.lore.length, LORE_N), 'keeper']] : [])]);
+    }
     if (t === '|') {
       if (!S.keys) return note(T().locked);
       S.keys--; world.set(r, c, ' '); note(T().doorOpen);
@@ -417,7 +427,7 @@ export function startGame() {
     next ||= world.find('>') ? T().qExit : S.done ? T().qDone : T().qBoss;
     const n = ch.levels.length;
     say([[tx(ch.name), `${T().next}: ${next}`, 'hero'],
-      [T().progress, T().qProgress(ch.levels.filter(id => S.learned.includes(id)).length, n, ch.levels.filter((_, i) => !gate(i)).length, chestsOpened(), world.chests.length), 'chest']]);
+      [T().progress, T().qProgress(ch.levels.filter(id => S.learned.includes(id)).length, n, ch.levels.filter((_, i) => !gate(i)).length, chestsOpened(), world.chests.length, ch.lore.filter((_, i) => S.lore.includes(loreId(S.ch, i))).length, ch.lore.length), 'chest']]);
   }
   function runCmd(c) {
     const [name = '', ...rest] = c.split(/\s+/), arg = rest.join(' ');
@@ -436,6 +446,10 @@ export function startGame() {
       case 'spells': case 'book': {
         const list = LEVELS.filter(l => S.learned.includes(l.id)).map(l => `${LV[l.id].title} (${spellKeys(l.id)}) ${'★'.repeat(S.best[l.id] || 0)}`);
         return say([[T().book, list.join(' · ') || T().bookEmpty, 'chest']]);
+      }
+      case 'lore': case 'journal': {
+        const pages = CHAPTERS.flatMap((ch, c) => ch.lore.flatMap((p, i) => (S.lore.includes(loreId(c, i)) ? [[tx(p.title), tx(p.fact), p.spr]] : [])));
+        return say(pages.length ? pages : [[T().lorePage, T().loreEmpty, 'keeper']]);
       }
       case 'stats': {
         const total = Object.values(S.best).reduce((a, b) => a + b, 0);
@@ -654,6 +668,7 @@ export function startGame() {
 
   // ---------- lesson index: every spell with its commands; replay any monster you've beaten ----------
   let I = null;
+  const LORE_N = CHAPTERS.reduce((n, ch) => n + ch.lore.length, 0);
   const ORDER = CHAPTERS.flatMap(ch => ch.levels.map(id => ({ id, ch })));
   function openIndex() {
     I = { i: Math.min(ORDER.length - 1, ORDER.findIndex(o => S.best[o.id] == null) >>> 0) };

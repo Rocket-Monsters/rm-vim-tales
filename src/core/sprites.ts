@@ -194,6 +194,7 @@ const CAST: Record<string, [string, string]> = {
   girl: ['long', '9 8 7 f'], ferry: ['hat', '5 4 5 f'], scribe: ['folk', '6 2 1 f'], kid: ['folk', '4 c 4 f'],
   miner: ['helm', 'a 5 4 f 5'], hermit: ['hood', '5 d 5 f'], dwarf: ['helm', '6 4 5 f 9'], captain: ['folk', '8 1 8 f'],
   teacher: ['long', '5 3 6 f'], nine: ['folk', 'a 9 4 f'],
+  keeper: ['hood', '2 6 d f'], bard: ['hat', 'e 2 9 f'],
 };
 
 function grid(name: string): string[] {
