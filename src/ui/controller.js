@@ -1,7 +1,7 @@
 // vim-tales game controller: drives the DOM rendered by the Solid components (menu, overworld, dialog, battle, : command line).
 // ponytail: imperative DOM updates by id; move state into Solid signals component by component.
 import { Run, LEVELS, stars, locked } from '../core/engine.ts';
-import { World, makeRound, useText, rng, pick as pickR, roundSecs, LV as LV_EN, ROUNDS, BOSS_ROUNDS, FIGHTS } from '../core/game.ts';
+import { World, replayBonus, makeRound, useText, rng, pick as pickR, roundSecs, LV as LV_EN, ROUNDS, BOSS_ROUNDS, FIGHTS } from '../core/game.ts';
 import { CHAPTERS, VILLAGES, ITEMS, MONSTERS, ROAMERS, ENDING } from '../core/story.ts';
 import { sprite, outfit, groundTiles, NAMES } from '../core/sprites.ts';
 import { CODE_LANGS, download } from '../core/text.ts';
@@ -29,7 +29,7 @@ export function startGame() {
 
   // ---------- state ----------
   const browserLang = () => (navigator.language || '').startsWith('es') ? 'es' : 'en';
-  const fresh = () => ({ ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false,
+  const fresh = () => ({ ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false, opened: [], replays: {},
     name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang(), text: null,
     village: false, owned: [], wear: {}, maps: {} });
   let S = fresh();
@@ -56,11 +56,22 @@ export function startGame() {
     try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch {}
   }
   // a save made before a map update keeps the old layout: reload the map, keep beaten gates open
-  const shape = rows => rows.map(r => r.replace(/[$%+|A-E@MW]/g, ' ')).join('\n');
+  const shape = rows => rows.map(r => r.replace(/[$_%+|A-E@MW]/g, ' ')).join('\n');
+  // the treasure ledger: S.opened holds the id of every chest taken this save, so no chest ever refills
+  const chestId = i => `${S.village ? 'v' : ''}${S.ch + 1}.$${i + 1}`;
+  function syncChests() {
+    world.chests.forEach(({ r, c }, i) => {
+      const id = chestId(i);
+      if (world.at(r, c) !== '$' && !S.opened.includes(id)) S.opened.push(id);
+      if (S.opened.includes(id)) world.set(r, c, '_');
+    });
+  }
+  const chestsOpened = () => world.chests.filter((_, i) => S.opened.includes(chestId(i))).length;
   function loadWorld() {
     if (S.lines && shape(S.lines) !== shape(CH().map)) { S.lines = null; S.pos = null; S.spawn = null; }
     world = new World(CH(), S.lines);
     CH().levels.forEach((id, i) => { const p = S.best[id] != null && world.find(String.fromCharCode(65 + i)); if (p) world.set(p.r, p.c, ' '); });
+    syncChests();
     if (S.pos) world.place(S.pos.r, S.pos.c);
     S.spawn ||= { ...world.start };
   }
@@ -96,7 +107,7 @@ export function startGame() {
   const note = t => { $('note').textContent = nm(t); };
 
   // ---------- overworld ----------
-  const OBJ = { $: 'chest', '%': 'heart', '+': 'key', '|': 'door', '>': 'portal', H: 'house' };
+  const OBJ = { $: 'chest', _: 'chestOpen', '%': 'heart', '+': 'key', '|': 'door', '>': 'portal', H: 'house' };
   function tile(t, r, c) {
     // anything standing in the water sits on a little sand island
     const ch = CH(), v = ((r * 7 + c * 13) ^ (r * c)) & 3, floor = t !== '#' && rowsAround(r, c).includes('~') && !/[ ]/.test(rowsAround(r, c)) ? 'g-isle' : 'g-f' + v;
@@ -160,14 +171,23 @@ export function startGame() {
     $('chap').textContent = tx(CH().name);
     $('hearts').innerHTML = img('heart').repeat(S.hearts) + img('heart', 'empty').repeat(Math.max(0, D_().hearts - S.hearts));
     $('gold').innerHTML = `${img('chest')} ${S.gold}`;
+    $('chestsHud').innerHTML = `${img('chestOpen')} ${chestsOpened()}/${world.chests.length}`;
     $('keysHud').innerHTML = `${img('key')} ${S.keys}`;
     $('lv').textContent = `${S.name} · ${S.lang === 'es' ? 'NV' : 'LV'} ${level()}`;
     $('stars').textContent = `★ ${Object.values(S.best).reduce((a, b) => a + b, 0)}/${LEVELS.length * 3}`;
   }
 
+  // standing on the exit with chests left: y leaves, any other key steps back to where you came from
+  let exitAsk = null;
   function mapKey(k) {
+    if (exitAsk) {
+      const back = exitAsk; exitAsk = null;
+      if (k === 'y') return nextChapter();
+      world.place(back.r, back.c); note(T().stayed); save(); return draw();
+    }
     if (k === '<CR>' || k === '<BS>') return;
     if (k.startsWith('Arrow')) return note(T().arrowCurse);
+    const from = { r: world.r, c: world.c };
     const ev = world.key(k, learnedSet());
     if (ev.wait) return draw();
     note('');
@@ -177,12 +197,17 @@ export function startGame() {
     if (ev.face) face = ev.face;
     if (ev.blocked) note(T().cantLand);
     for (const t of ev.picked) {
-      if (t === '$') { S.gold += 10; note(T().gold); }
+      if (t === '$') { S.gold += 10; note(T().gold); syncChests(); }
       if (t === '%') { S.hearts = Math.min(MAX_HEARTS, S.hearts + 1); note(T().heal); }
       if (t === '+') { S.keys++; note(T().keyFound); }
     }
+    if (ev.looted) note(T().looted);
     if (ev.foe) { save(); draw(); return encounter(ev.foe); }
-    if (ev.exit) return nextChapter();
+    if (ev.exit) {
+      const left = world.chests.length - chestsOpened();
+      if (!left) return nextChapter();
+      exitAsk = from; note(T().leaveAsk(left)); save(); return draw();
+    }
     if (ev.bump) bump(ev.bump);
     if ((ev.bump || ev.blocked) && ![[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dr, dc]) => world.walkable(world.r + dr, world.c + dc))) note(T().stuck);
     save(); draw();
@@ -341,6 +366,11 @@ export function startGame() {
     if (!training) { const p = world.find(String.fromCharCode(65 + CH().levels.indexOf(id))); if (p) world.set(p.r, p.c, ' '); }
     const lines = [[T().victory, T().defeated(tx(m.name), '★'.repeat(s) + '☆'.repeat(3 - s), keys, par), m.spr]];
     if (first) lines.push(hero(T().grew(level())));
+    if (training && s === 3) {
+      const n = S.replays[id] || 0, g = replayBonus(n);
+      S.replays[id] = n + 1; S.gold += g;
+      lines.push([T().victory, T().replayBonus(g), 'chest']);
+    }
     if (id === 'boss' && first) { S.done = true; lines.push(...story(ENDING)); }
     save(); draw();
     // beating Dr. Clicker the first time ends in the Victory Parade
@@ -408,9 +438,9 @@ export function startGame() {
       else if (gate(i)) next = T().qFoe(tx(MONSTERS[id].name), LV[id].title, spellKeys(id));
     });
     next ||= world.find('>') ? T().qExit : S.done ? T().qDone : T().qBoss;
-    const n = ch.levels.length, gold = world.lines.join('').split('$').length - 1;
+    const n = ch.levels.length;
     say([[tx(ch.name), `${T().next}: ${next}`, 'hero'],
-      [T().progress, T().qProgress(ch.levels.filter(id => S.learned.includes(id)).length, n, ch.levels.filter((_, i) => !gate(i)).length, gold), 'chest']]);
+      [T().progress, T().qProgress(ch.levels.filter(id => S.learned.includes(id)).length, n, ch.levels.filter((_, i) => !gate(i)).length, chestsOpened(), world.chests.length), 'chest']]);
   }
   function runCmd(c) {
     const [name = '', ...rest] = c.split(/\s+/), arg = rest.join(' ');
@@ -434,7 +464,7 @@ export function startGame() {
         const total = Object.values(S.best).reduce((a, b) => a + b, 0);
         return say([hero(T().stats(level(), S.hearts, MAX_HEARTS, S.gold, S.keys, total, LEVELS.length * 3, S.learned.length, LEVELS.length))]);
       }
-      case 'back': if (notInBattle()) return; world.place(S.spawn.r, S.spawn.c); save(); draw(); return showCmd('⏪ ' + T().back);
+      case 'back': if (notInBattle()) return; exitAsk = null; world.place(S.spawn.r, S.spawn.c); save(); draw(); return showCmd('⏪ ' + T().back);
       case 'train': {
         if (notInBattle()) return;
         const lv = arg && findSpell(arg);
@@ -764,7 +794,7 @@ export function startGame() {
     if (e.metaKey || e.altKey) return;
     let k = e.key;
     if (e.ctrlKey) {
-      if (k === 'o' && !B && !M && !W && !D && !Bo && $('dialog').hidden) { e.preventDefault(); world.place(S.spawn.r, S.spawn.c); note(T().back); save(); return draw(); }
+      if (k === 'o' && !B && !M && !W && !D && !Bo && $('dialog').hidden) { e.preventDefault(); exitAsk = null; world.place(S.spawn.r, S.spawn.c); note(T().back); save(); return draw(); }
       if (k === '[' || k === 'c') k = '<Esc>'; else return;
     } else if (k === 'Escape') k = '<Esc>';
     else if (k === 'Enter') k = '<CR>';

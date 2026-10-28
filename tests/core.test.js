@@ -1,7 +1,7 @@
 // bun run test — every level must be solvable by its solution within par, plus engine spot checks
 import assert from 'node:assert';
 import { Vim, Run, LEVELS, tokens, needs, locked } from '../src/core/engine.ts';
-import { World, makeRound, rng, upTo, GEN, solveSteps, ROUNDS, MOVE_SPELLS } from '../src/core/game.ts';
+import { World, replayBonus, makeRound, rng, upTo, GEN, solveSteps, ROUNDS, MOVE_SPELLS } from '../src/core/game.ts';
 import { CHAPTERS, MONSTERS } from '../src/core/story.ts';
 
 for (const lv of LEVELS) {
@@ -52,7 +52,17 @@ assert.equal(new World(CHAPTERS[0]).key('i', upTo('hjkl')).locked, 'battle', 'i 
   w.roamers = [foe];
   assert.equal(w.key('l', upTo('hjkl')).foe, foe, 'touching a roamer reports it');
 }
-console.log('ok: generated rounds');
+{ // treasure ledger: chests are numbered in reading order, an opened chest stays as _ and gives nothing again
+  const w = new World({ map: ['######', '#@$ $#', '######'] }), L = upTo('hjkl');
+  assert.deepEqual(w.chests, [{ r: 1, c: 2 }, { r: 1, c: 4 }]);
+  assert.deepEqual(w.key('l', L).picked, ['$']);
+  assert.equal(w.at(1, 2), '_', 'opened chest stays on the map');
+  w.key('h', L);
+  const again = w.key('l', L);
+  assert(again.looted && !again.picked.length, 'opened chest is empty');
+}
+assert.deepEqual([...Array(10).keys()].map(replayBonus), [3, 2, 2, 2, 1, 1, 1, 1, 1, 0], '★★★ replay bonus drops 20% a time');
+console.log('ok: generated rounds, treasure ledger');
 
 // story maps: equal widths, every level has sage+monster, monsters gate the path in order
 const seen = [];
@@ -135,7 +145,7 @@ console.log(`ok: ${CHAPTERS.length} chapters`);
 // sprites: every sprite the story uses exists and fits 16x16
 import { grid, groundTiles, NAMES } from '../src/core/sprites.ts';
 import { UI, LESSONS_ES, fingers } from '../src/ui/i18n.js';
-const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'heart', 'key', 'door', 'portal', 'house', 'boulder'];
+const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'chestOpen', 'heart', 'key', 'door', 'portal', 'house', 'boulder'];
 for (const ch of CHAPTERS) assert(Object.values(groundTiles(ch.ground)).every(u => u.startsWith('data:image/svg+xml') && !u.includes('undefined')), `${ch.name} ground`);
 for (const n of used) assert(NAMES.includes(n), `sprite ${n} missing`);
 for (const n of NAMES) { const g = grid(n); assert(g.length <= 16 && g.every(r => r.length <= 16), `sprite ${n} bigger than 16x16`); }
