@@ -40,3 +40,7 @@ tests/core.test.js
 ## License
 
 MIT
+
+## Author
+
+Rommel Meza · rommelmeza@gmail.com · https://github.com/Rocket-Monsters/rm-vim-tales
