@@ -70,6 +70,7 @@ CHAPTERS.forEach((ch, ci) => {
   const m = ch.map, W = m[0].length;
   m.forEach((row, r) => assert.equal(row.length, W, `${ch.name} row ${r} width`));
   assert.equal(m.join('').split('&').length - 1, ch.npcs.length, `${ch.name} npc count`);
+  assert.equal(m.join('').split('L').length - 1, ch.lore.length, `${ch.name} lore keeper count`);
   assert.equal(ch.sages.length, ch.levels.length, `${ch.name} sage count`);
   assert(m.join('').split('+').length >= m.join('').split('|').length, `${ch.name}: more doors than keys`);
   ch.levels.forEach(id => { assert(MONSTERS[id], `${id} monster missing`); seen.push(id); });
@@ -137,6 +138,7 @@ CHAPTERS.forEach((ch, ci) => {
   if (at('>')) assert(all.has(at('>') + ''), `${ch.name}: exit unreachable`);
   m.forEach((row, r) => [...row].forEach((t, c) => {
     if ('$%+'.includes(t)) assert(all.has([r, c] + ''), `${ch.name}: item ${t} at ${r},${c} unreachable`);
+    if (t === 'L') assert([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dr, dc]) => all.has([r + dr, c + dc] + '')), `${ch.name}: lore keeper at ${r},${c} unreachable`);
   }));
 });
 assert.deepEqual(seen, LEVELS.map(l => l.id), 'chapters must cover every level in order');
@@ -145,7 +147,7 @@ console.log(`ok: ${CHAPTERS.length} chapters`);
 // sprites: every sprite the story uses exists and fits 16x16
 import { grid, groundTiles, NAMES } from '../src/core/sprites.ts';
 import { UI, LESSONS_ES, fingers } from '../src/ui/i18n.js';
-const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'chestOpen', 'heart', 'key', 'door', 'portal', 'house', 'boulder'];
+const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr), ...ch.lore.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'chestOpen', 'heart', 'key', 'door', 'portal', 'house', 'boulder'];
 for (const ch of CHAPTERS) assert(Object.values(groundTiles(ch.ground)).every(u => u.startsWith('data:image/svg+xml') && !u.includes('undefined')), `${ch.name} ground`);
 for (const n of used) assert(NAMES.includes(n), `sprite ${n} missing`);
 for (const n of NAMES) { const g = grid(n); assert(g.length <= 16 && g.every(r => r.length <= 16), `sprite ${n} bigger than 16x16`); }

@@ -34,6 +34,7 @@ class World {
   start!: Pos;
   nav: Vim;
   npcAt: Record<string, number> = {};
+  loreAt: Record<string, number> = {};
   // every $ of the chapter map in reading order: chest n has the save id "<chapter>.$<n+1>"
   chests: Pos[] = [];
   constructor(chapter: { map: string[] }, saved?: string[] | null) {
@@ -45,7 +46,8 @@ class World {
     const lines = saved || chapter.map.map(row => row.replace(/[MW@]/g, ' '));
     this.nav = new Vim(lines.join('\n'), true, mapCls);
     let n = 0;
-    chapter.map.forEach((row, r) => [...row].forEach((t, c) => { if (t === '&') this.npcAt[r + ',' + c] = n++; }));
+    let l = 0;
+    chapter.map.forEach((row, r) => [...row].forEach((t, c) => { if (t === '&') this.npcAt[r + ',' + c] = n++; if (t === 'L') this.loreAt[r + ',' + c] = l++; }));
     this.place(this.start.r, this.start.c);
   }
   get lines() { return this.nav.lines; }
