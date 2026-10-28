@@ -11,6 +11,7 @@ export default function Screens() {
         </div>
         <div class="win menu-box" id="mBody" />
         <p class="help" id="mHelp" />
+        <p class="credit">by Rommel Meza · <a href="mailto:rommelmeza@gmail.com">rommelmeza@gmail.com</a> · <a href="https://github.com/Rocket-Monsters/rm-vim-tales" target="_blank" rel="noopener">GitHub</a></p>
       </div>
       <div id="wizard" class="screen" hidden>
         <div class="win wiz">

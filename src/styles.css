@@ -107,6 +107,7 @@
   .vs .spr:first-child { animation:bob .6s ease-in-out infinite alternate; }
   .vs b { font:18px var(--pixel); color:var(--bad); animation:bob .5s ease-in-out infinite alternate; }
   .villain { animation:wiggle .6s steps(2) infinite; filter:drop-shadow(0 0 14px var(--bad)); }
+  .credit { color:var(--dim); font-size:12px; } .credit a { color:var(--acc); }
   .tag { font:11px/2 var(--pixel); color:#c9d3ff; margin:6px 0; } .tag b { color:var(--gem); font-weight:normal; }
   .menu-box { width:min(520px, 100%); padding:16px 20px; font:12px/2 var(--pixel); }
   .menu-box h3 { font:11px var(--pixel); color:var(--gem); margin:0 0 12px; }
