@@ -5,6 +5,10 @@ type Learned = ReadonlySet<string>;
 const LV = Object.fromEntries(LEVELS.map(l => [l.id, l])) as Record<SpellId, Lesson>;
 const MOVE_SPELLS: SpellId[] = ['hjkl', 'words', 'edges', 'counts', 'find'];
 const ROUNDS = 5, BOSS_ROUNDS = 8;
+// fights against roaming monsters: how many rounds (each a random learned spell) and how much of the usual clock
+const FIGHTS = { ambush: { rounds: 1, time: 1 }, swarm: { rounds: 3, time: 1 }, blitz: { rounds: 1, time: 0.5 } } as const;
+// seconds on the clock for a round: a base plus a few seconds per keystroke of par
+const roundSecs = (par: number, perKey: number, time = 1) => Math.round((10 + par * perKey) * time);
 // every spell learned once you've mastered `id` (hjkl is innate)
 const upTo = (id: SpellId) => new Set(['hjkl', ...LEVELS.slice(0, LEVELS.findIndex(l => l.id === id) + 1).map(l => l.id)]);
 
@@ -18,7 +22,7 @@ const DIRS: Record<string, [number, number]> = { h: [0, -1], j: [1, 0], k: [-1, 
 // one key on the map → what happened
 export interface MapEvent {
   picked: string[]; wait?: boolean; locked?: SpellId | 'unknown' | 'battle';
-  bump?: Pos & { t: string | undefined }; blocked?: boolean; hurt?: boolean; exit?: boolean; face?: number;
+  bump?: Pos & { t: string | undefined }; blocked?: boolean; foe?: Roamer; exit?: boolean; face?: number;
 }
 export interface Roamer extends Pos { dr: number; dc: number }
 
@@ -52,7 +56,7 @@ class World {
     if (k === '<Esc>') { v.pending = ''; return ev; }
     const need = needs(cmd);
     const lock = !need.length && !/^[1-9]\d*$/.test(cmd) ? 'unknown'
-      : need.find(s => !MOVE_SPELLS.includes(s)) ? 'battle' : need.find(s => !learned.has(s));
+      : need.find(s => !MOVE_SPELLS.includes(s)) || cmd === 'i' ? 'battle' : need.find(s => !learned.has(s));
     if (lock) { v.pending = ''; ev.locked = lock; return ev; }
     const walk = cmd.match(/^([1-9]\d*)?([hjkl])$/);
     if (walk) {
@@ -64,7 +68,7 @@ class World {
         if (!this.walkable(r, c)) { ev.bump = { r, c, t: this.at(r, c) }; break; }
         this.place(r, c);
         this.step(ev);
-        if (ev.exit || ev.hurt) break;
+        if (ev.exit || ev.foe) break;
       }
     } else {
       const from = { r: v.r, c: v.c, want: v.want };
@@ -75,14 +79,14 @@ class World {
         else { Object.assign(v, from); ev.blocked = true; }
       }
     }
-    if (!ev.exit && !ev.hurt) this.turn(ev);
+    if (!ev.exit && !ev.foe) this.turn(ev);
     return ev;
   }
   step(ev: MapEvent) {
     const t = this.at(this.r, this.c)!;
     if ('$%+'.includes(t)) { this.set(this.r, this.c, ' '); ev.picked.push(t); }
     if (t === '>') ev.exit = true;
-    if (this.roamers.some(m => m.r === this.r && m.c === this.c)) ev.hurt = true;
+    ev.foe ||= this.roamers.find(m => m.r === this.r && m.c === this.c);
   }
   // monsters take one step per command: a 9j dash or a $ leap outruns them
   turn(ev: MapEvent) {
@@ -92,7 +96,7 @@ class World {
         if (' .='.includes(this.at(r, c) || '#') && !this.roamers.some(o => o !== m && o.r === r && o.c === c)) { m.r = r; m.c = c; break; }
         m.dr = -m.dr; m.dc = -m.dc;
       }
-      if (m.r === this.r && m.c === this.c) ev.hurt = true;
+      if (m.r === this.r && m.c === this.c) ev.foe ||= m;
     }
   }
 }
@@ -135,7 +139,13 @@ const TODOS = ['TODO remove', 'FIXME later', 'hack', 'debug only'];
 const QUOTES = ['hello hero', 'chest', 'the old key', 'level up', 'game over', 'potion'];
 const ARGS = ['potion, 5', 'goblin, sword', 'hp < 10', 'mana', 'dragon, 3, fire', 'gold > 99'];
 const TPL: [string, string][] = [['open("X")', '"'], ['say("X", hero)', '"'], ['let msg = "X"', '"'], ['heal(X)', '('], ['attack(X)', '('], ['if (X) run()', '(']];
-const lines = (R: Rand, d: number) => sample(R, PROSE, 1 + Math.ceil(d / 2));
+// the text rounds are cut from: built in, or downloaded at new game (see text.ts)
+let TEXT = PROSE, CODE_TEXT = CODE;
+function useText(custom?: string[] | null, code = false) {
+  TEXT = custom?.length ? custom : PROSE;
+  CODE_TEXT = custom?.length && code ? custom : CODE;
+}
+const lines = (R: Rand, d: number) => sample(R, TEXT, 1 + Math.ceil(d / 2));
 
 // each generator returns {start, goal, steps}; steps run bottom-up/right-to-left so earlier positions never shift
 // a step: go to (r, c) (c = null: anywhere on line r), then press keys
@@ -161,7 +171,7 @@ const GEN: Record<string, (R: Rand, d: number) => Generated> = {
     return { start, goal, steps: steps.reverse() };
   },
   lines(R, d) {
-    const start = sample(R, CODE, 2 + Math.ceil(d / 2)), goal: string[] = [], steps: Step[] = [];
+    const start = sample(R, CODE_TEXT, 2 + Math.ceil(d / 2)), goal: string[] = [], steps: Step[] = [];
     start.forEach((line, r) => {
       const semi = R() < 0.7 || r === start.length - 1, pre = R() < 0.3, note = R() < 0.3 ? pick(R, NOTES) : null;
       if (note) goal.push('// ' + note);
@@ -184,7 +194,7 @@ const GEN: Record<string, (R: Rand, d: number) => Generated> = {
     return { start, goal, steps: steps.reverse() };
   },
   motions(R, d) {
-    const goal = sample(R, CODE, 2 + Math.ceil(d / 2)), steps: Step[] = [];
+    const goal = sample(R, CODE_TEXT, 2 + Math.ceil(d / 2)), steps: Step[] = [];
     const start = goal.map((line, r) => {
       const t = r === goal.length - 1 && !steps.length ? 0 : R();
       if (t < 0.45) { steps.push({ r, c: line.length, keys: 'D' }); return line + ' // ' + pick(R, TODOS); }
@@ -271,8 +281,8 @@ function solveSteps(start: string, steps: Step[]) {
   return { sol, text: v.text };
 }
 
-// movement rounds: scatter * gems where the spell shines; par comes from a cheapest-path search
-function moveset(learned: Learned, v: Vim) {
+// movement rounds: letters go missing where the spell shines; par comes from a cheapest-path search
+function moveset(learned: Learned, v: Vim, targets: string) {
   const m: string[] = [];
   const has = (s: SpellId) => learned.has(s);
   if (has('hjkl')) m.push('h', 'j', 'k', 'l');
@@ -283,7 +293,7 @@ function moveset(learned: Learned, v: Vim) {
     m.push('gg', 'G');
     for (let n = 2; n < v.lines.length; n++) m.push(n + 'G');
   }
-  if (has('find')) m.push('f*', 'F*', 't*', 'T*');
+  if (has('find')) for (const ch of new Set(targets)) m.push('f' + ch, 'F' + ch, 't' + ch, 'T' + ch);
   return m;
 }
 // Dijkstra over cursor states (cost = keystrokes) → Map "r,c" → cheapest key string
@@ -308,33 +318,39 @@ function paths(v: Vim, moves: string[]) {
   Object.assign(v, s0, { pending: '' });
   return out;
 }
-function genGems(R: Rand, d: number, id: SpellId, learned: Learned): Level {
+function genFix(R: Rand, d: number, id: SpellId, learned: Learned): Level {
   const n = id === 'counts' ? 8 + 2 * d : id === 'hjkl' ? 3 + Math.floor(d / 2) : 4 + Math.floor(d / 2);
-  let rows = Array.from({ length: n }, () => pick(R, PROSE));
+  let rows = Array.from({ length: n }, () => pick(R, TEXT));
   if (id === 'hjkl') rows = rows.map(l => l.slice(0, 10 + 2 * d).trimEnd());
   if (id === 'edges' || id === 'counts') rows = rows.map(l => ' '.repeat(Math.floor(R() * 4)) + l);
-  const cand: [number, number][] = [];
+  // [row, col of the letter to remove, word index]; the letter after it is where i lands, so it must stay in the word
+  const cand: [number, number, number][] = [];
   rows.forEach((l, r) => {
     const ws = [...l.matchAll(/\S+/g)];
     ws.forEach((m, i) => {
-      const s = m.index, e = s + m[0].length - 1;
-      if (id === 'hjkl' || id === 'find') for (let c = s; c <= e; c++) cand.push([r, c]);
-      else if (id === 'words') cand.push([r, s], [r, e]);
-      else if (id === 'edges' && (i === 0 || i === ws.length - 1)) cand.push([r, i ? e : s]);
-      else if (id === 'counts' && i === 0) cand.push([r, s]);
+      const s = m.index, e = s + m[0].length - 1, add = (c: number) => cand.push([r, c, i]);
+      if (e === s) return;
+      if (id === 'hjkl' || id === 'find') for (let c = s; c < e; c++) add(c);
+      else if (id === 'words') add(pick(R, [s, e - 1]));
+      else if (id === 'edges' && (i === 0 || i === ws.length - 1)) add(i ? e - 1 : s);
+      else if (id === 'counts' && i === 0) add(s);
     });
   });
-  const gems = sample(R, cand.filter(([r, c]) => r || c), 2 + d);
-  gems.forEach(([r, c]) => { rows[r] = rows[r].slice(0, c) + '*' + rows[r].slice(c + 1); });
-  const lv = { start: rows.join('\n') }, run = new Run(lv), moves = moveset(learned, run.vim);
-  let solution = '';
-  while (!run.done) {
+  const used = new Set<string>();
+  const fixes = sample(R, cand, cand.length).filter(([r, , i]) => !used.has(r + ',' + i) && used.add(r + ',' + i))
+    .slice(0, 2 + d).map(([r, c]) => ({ r, c, ch: rows[r][c] }));
+  const start = rows.map((l, r) => [...l].filter((_, c) => !fixes.some(f => f.r === r && f.c === c)).join(''));
+  const lv = { start: start.join('\n'), goal: rows.join('\n') }, run = new Run(lv);
+  const moves = moveset(learned, run.vim, fixes.map(f => rows[f.r][f.c + 1]).join(''));
+  let solution = '', left = fixes;
+  while (left.length) {
     const ps = paths(run.vim, moves);
-    const best = gems.filter(([r, c]) => !run.got.has(r + ',' + c)).map(([r, c]) => ps.get(r + ',' + c))
-      .filter(p => p != null).sort((a, b) => tokens(a).length - tokens(b).length)[0];
-    if (best == null) break;
-    tokens(best).forEach(k => run.press(k));
-    solution += best;
+    // the letter after each gap, shifted left by the gaps still open before it on its line
+    const [f, p] = left.map(f => [f, ps.get(f.r + ',' + (f.c - left.filter(g => g.r === f.r && g.c < f.c).length))!] as const)
+      .sort((a, b) => tokens(a[1]).length - tokens(b[1]).length)[0];
+    const k = `${p}i${f.ch}<Esc>`;
+    tokens(k).forEach(x => run.press(x));
+    solution += k; left = left.filter(g => g !== f);
   }
   return { ...lv, solution, par: run.keys };
 }
@@ -342,11 +358,17 @@ function genGems(R: Rand, d: number, id: SpellId, learned: Learned): Level {
 // round 0 is the handcrafted lesson; later rounds are generated and get harder
 function makeRound(id: SpellId, R: Rand, d: number, learned: Learned): Level {
   if (d === 0) return LV[id];
-  if (MOVE_SPELLS.includes(id)) return genGems(R, d, id, learned);
+  if (MOVE_SPELLS.includes(id)) return genFix(R, d, id, learned);
   const gen = id === 'boss' ? GEN[pick(R, Object.keys(GEN))] : GEN[id];
   const { start, goal, steps } = gen(R, id === 'boss' ? d + 1 : d);
-  const { sol } = solveSteps(start.join('\n'), steps);
+  const { sol, text } = solveSteps(start.join('\n'), steps);
+  // downloaded text can trip a generator (yw stops at punctuation): fall back to the built-in text
+  if (text !== goal.join('\n') && TEXT !== PROSE) {
+    const keep = [TEXT, CODE_TEXT];
+    TEXT = PROSE; CODE_TEXT = CODE;
+    try { return makeRound(id, R, d, learned); } finally { [TEXT, CODE_TEXT] = keep; }
+  }
   return { start: start.join('\n'), goal: goal.join('\n'), solution: sol, par: tokens(sol).length };
 }
 
-export { World, makeRound, rng, upTo, LV, ROUNDS, BOSS_ROUNDS, MOVE_SPELLS, GEN, solveSteps };
+export { World, makeRound, useText, sample, rng, pick, roundSecs, upTo, LV, ROUNDS, BOSS_ROUNDS, FIGHTS, MOVE_SPELLS, GEN, solveSteps };

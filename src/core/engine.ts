@@ -8,8 +8,8 @@ export interface Target extends Pos { inclusive?: boolean; linewise?: boolean; w
 type Res = 'ok' | 'wait' | 'bad';
 type FindCmd = 'f' | 'F' | 't' | 'T';
 type WordClass = (ch: string | undefined) => number;
-// a playable round: gem rounds have no goal, edit rounds must end with the buffer equal to goal
-export interface Level { start: string; goal?: string; par: number; solution: string }
+// a playable round: it's won once the buffer equals goal, back in normal mode
+export interface Level { start: string; goal: string; par: number; solution: string }
 export interface Lesson extends Level { id: SpellId; world: string; title: string; learn: string; keys: [string, string][] }
 
 const charClass: WordClass = ch => (ch === undefined || /\s/.test(ch) ? 0 : /\w/.test(ch) ? 1 : 2);
@@ -330,14 +330,11 @@ class Vim {
   }
 }
 
-// one attempt at a level: gem levels = land on every *, edit levels = make buffer equal goal
+// one attempt at a level: make the buffer equal goal
 class Run {
-  gemMode: boolean; vim: Vim; gems: number;
-  got = new Set<string>(); keys = 0; done = false;
+  vim: Vim; keys = 0; done = false;
   constructor(public level: Pick<Level, 'start' | 'goal'>) {
-    this.gemMode = level.goal === undefined;
-    this.vim = new Vim(level.start, this.gemMode);
-    this.gems = this.gemMode ? (level.start.match(/\*/g) || []).length : 0;
+    this.vim = new Vim(level.start);
     this.check();
   }
   press(k: string) {
@@ -346,15 +343,13 @@ class Run {
     return this.done;
   }
   check() {
-    const v = this.vim;
-    if (this.gemMode && v.lines[v.r][v.c] === '*') this.got.add(v.r + ',' + v.c);
-    this.done = v.mode === 'normal' && (this.gemMode ? this.got.size === this.gems : v.text === this.level.goal);
+    this.done = this.vim.mode === 'normal' && this.vim.text === this.level.goal;
   }
 }
 
 // which spells (level ids) a (partial) normal-mode command needs
 const HEAD: Record<string, SpellId> = { h: 'hjkl', j: 'hjkl', k: 'hjkl', l: 'hjkl', w: 'words', b: 'words', e: 'words', 0: 'edges', '^': 'edges', $: 'edges',
-  G: 'counts', g: 'counts', f: 'find', F: 'find', t: 'find', T: 'find', ';': 'find', ',': 'find', x: 'x', X: 'x', i: 'insert', a: 'insert',
+  G: 'counts', g: 'counts', f: 'find', F: 'find', t: 'find', T: 'find', ';': 'find', ',': 'find', x: 'x', X: 'x', i: 'hjkl', a: 'insert',
   I: 'lines', A: 'lines', o: 'lines', O: 'lines', J: 'lines', D: 'motions', C: 'change', s: 'change', S: 'change',
   r: 'replace', '~': 'replace', p: 'yank', P: 'yank', u: 'dot', '.': 'dot' };
 const OPS: Record<string, SpellId> = { d: 'delete', c: 'change', y: 'yank' };
@@ -374,43 +369,48 @@ const stars = (lv: { par: number }, keys: number) => (keys <= lv.par ? 3 : keys 
 const M = 'I. The Meadow — movement', W = 'II. The Workshop — editing', B = 'III. The Tower — mastery';
 const LEVELS: Lesson[] = [
   {
-    id: 'hjkl', world: M, title: 'First steps',
-    learn: 'Your cursor is the hero. Land on every * gem. Hands on the home row: h j k l. No arrow keys in this land.',
-    keys: [['h', 'left'], ['j', 'down'], ['k', 'up'], ['l', 'right']],
-    start: '.....*....\n..........\n*.........\n.........*',
-    par: 22, solution: 'llllljjhhhhhjlllllllll',
+    id: 'hjkl', world: M, title: 'Modes and first steps',
+    learn: 'vim has two modes. In NORMAL mode every key is a command: h j k l move the cursor. i switches to INSERT mode, where keys type text, and Esc brings you back to NORMAL. Walk to each gap, press i, type the missing letter, then Esc.',
+    keys: [['h', 'left'], ['j', 'down'], ['k', 'up'], ['l', 'right'], ['i', 'insert mode'], ['Esc', 'normal mode']],
+    start: 'hlp the\nhro\nfx it',
+    goal: 'help the\nhero\nfix it',
+    par: 12, solution: 'lie<Esc>jie<Esc>jii<Esc>',
   },
   {
     id: 'words', world: M, title: 'Word hopping',
-    learn: 'w jumps to the start of the next word, b back to the start of the previous one, e to the end of a word. Punctuation like * counts as its own word.',
+    learn: 'w jumps to the start of the next word, b back to the start of the previous one, e to the end of a word. Letters are missing near the edges of words: hop there, then i.',
     keys: [['w', 'next word'], ['b', 'back a word'], ['e', 'end of word']],
-    start: 'jump * over * words with w\nthe end* is where e goes*',
-    par: 11, solution: 'wwwjbbeeeee',
+    start: 'jump ver the wors',
+    goal: 'jump over the words',
+    par: 10, solution: 'wio<Esc>eeeid<Esc>',
   },
   {
     id: 'edges', world: M, title: 'Edges of the world',
-    learn: '0 goes to the very start of the line, ^ to the first non-blank character, $ to the end.',
+    learn: '0 goes to the very start of the line, ^ to the first non-blank character, $ to the end. The gaps sit at the edges.',
     keys: [['0', 'line start'], ['^', 'first non-blank'], ['$', 'line end']],
-    start: '    *begins after spaces\nend of the line is a gem *\n*and the start of this one',
-    par: 5, solution: '^j$j0',
+    start: '    egins after spaces\nend of the line is a gm\nnd the start of this one',
+    goal: '    begins after spaces\nend of the line is a gem\nand the start of this one',
+    par: 14, solution: '^ib<Esc>j$ie<Esc>j0ia<Esc>',
   },
   {
     id: 'counts', world: M, title: 'Leaps and counts',
     learn: 'Put a number before a motion to repeat it: 5k goes up 5 lines. G jumps to the last line, gg to the first, and 7G / 7gg to line 7.',
     keys: [['G', 'last line'], ['gg', 'first line'], ['5k', 'count + motion'], ['3gg', 'go to line 3']],
-    start: 'start here, the gems are far away\n*  2gg brings you here\nline 3\nline 4\nline 5\nline 6\n*  line 7 (try 5k from the bottom)\nline 8\nline 9\nline 10\nline 11\n*  the bottom: press G',
-    par: 6, solution: 'G5k2gg',
+    start: 'start here, the gaps are far away\no here with 2gg\nline 3\nline 4\nline 5\nline 6\nry 5k from the bottom (line 7)\nline 8\nline 9\nline 10\nline 11\nhe bottom: press G',
+    goal: 'start here, the gaps are far away\ngo here with 2gg\nline 3\nline 4\nline 5\nline 6\ntry 5k from the bottom (line 7)\nline 8\nline 9\nline 10\nline 11\nthe bottom: press G',
+    par: 15, solution: 'Git<Esc>5kit<Esc>2ggig<Esc>',
   },
   {
     id: 'find', world: M, title: 'The seeker',
     learn: 'f{char} jumps to the next {char} on the line, t{char} stops just before it. F and T search backwards. ; repeats the last find, , repeats it in reverse.',
-    keys: [['f*', 'find *'], ['t*', 'till *'], ['F T', 'backwards'], [';', 'repeat'], [',', 'repeat reversed']],
-    start: 'find the * with f*, then repeat with ; to grab * and *',
-    par: 5, solution: 'f*;;;',
+    keys: [['fx', 'find x'], ['tx', 'till x'], ['F T', 'backwards'], [';', 'repeat'], [',', 'repeat reversed']],
+    start: 'find the x, then the fx, then the bx',
+    goal: 'find the ox, then the fox, then the box',
+    par: 15, solution: 'fxio<Esc>;;io<Esc>;;io<Esc>',
   },
   {
     id: 'x', world: W, title: 'x marks the typo',
-    learn: 'Now you edit. Make your buffer match the goal on the right. x deletes the character under the cursor. Lines that still differ are marked red.',
+    learn: 'Now you take letters away. x deletes the character under the cursor. Lines that still differ are marked red.',
     keys: [['x', 'delete char'], ['X', 'delete char before']],
     start: 'Thhe catt saat onn the mat.',
     goal: 'The cat sat on the mat.',

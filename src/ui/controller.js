@@ -1,9 +1,10 @@
 // vim-tales game controller: drives the DOM rendered by the Solid components (menu, overworld, dialog, battle, : command line).
 // ponytail: imperative DOM updates by id; move state into Solid signals component by component.
 import { Run, LEVELS, stars, locked } from '../core/engine.ts';
-import { World, makeRound, rng, LV as LV_EN, ROUNDS, BOSS_ROUNDS } from '../core/game.ts';
-import { CHAPTERS, MONSTERS, ENDING } from '../core/story.ts';
-import { sprite, NAMES } from '../core/sprites.ts';
+import { World, makeRound, useText, rng, pick as pickR, roundSecs, LV as LV_EN, ROUNDS, BOSS_ROUNDS, FIGHTS } from '../core/game.ts';
+import { CHAPTERS, MONSTERS, ROAMERS, ENDING } from '../core/story.ts';
+import { sprite, groundTiles, NAMES } from '../core/sprites.ts';
+import { CODE_LANGS, download } from '../core/text.ts';
 import { UI, LESSONS_ES, fingers } from './i18n.js';
 
 // starts the game on the mounted markup, returns a cleanup
@@ -11,20 +12,25 @@ export function startGame() {
   const $ = id => document.getElementById(id);
   const esc = s => String(s).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[ch]);
   const MAX_HEARTS = 5, SAVE = 'rmvt-rpg';
-  const DIFF = { easy: { hearts: 5, hp: 50 }, normal: { hearts: 3, hp: 30 }, hard: { hearts: 1, hp: 15 } };
+  // pace: seconds on the battle clock per keystroke of par
+  const DIFF = { easy: { hearts: 5, hp: 50, pace: 4 }, normal: { hearts: 3, hp: 30, pace: 2.5 }, hard: { hearts: 1, hp: 15, pace: 1.5 } };
 
   // every sprite becomes a CSS class once (.s-rat), so map tiles stay tiny <i> tags
   const css = document.createElement('style');
   css.textContent = NAMES.map(n => `.s-${n}{background-image:url("${sprite(n)}")}`).join('\n');
-  document.head.append(css);
+  // ground textures are generated per chapter (.g-f0 … .g-isle), swapped in when the chapter changes
+  const groundCss = document.createElement('style');
+  document.head.append(css, groundCss);
+  let groundOf = null;
   const img = (n, cls = '') => `<i class="spr s-${n} ${cls}"></i>`;
 
   // ---------- state ----------
   const browserLang = () => (navigator.language || '').startsWith('es') ? 'es' : 'en';
   const fresh = () => ({ ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false,
-    name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang() });
+    name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang(), text: null });
   let S = fresh();
   try { S = { ...S, ...JSON.parse(localStorage.getItem(SAVE)) }; } catch {}
+  useText(S.text?.lines, S.text?.kind === 'code');
   let world, face = 1, B = null;
   const CH = () => CHAPTERS[S.ch];
   const D_ = () => DIFF[S.diff] || DIFF.normal;
@@ -85,24 +91,41 @@ export function startGame() {
   // ---------- overworld ----------
   const OBJ = { $: 'chest', '%': 'heart', '+': 'key', '|': 'door', '>': 'portal', H: 'house' };
   function tile(t, r, c) {
-    const ch = CH();
-    if (t === '#') return ['', img(ch.wall)];
-    if (t === '^') return ['', img('boulder')];
-    if (t === '~') return ['water s-water', ''];
-    if (t === '=') return ['s-stone', ''];
-    if (t === 'o') return ['s-sand', '<b class="isle">o</b>'];
-    if (t === '.') return [rowsAround(r, c).includes('~') ? 's-sand' : 's-path', ''];
-    if (OBJ[t]) return [t === '>' ? 'portal' : '', img(OBJ[t])];
-    if (t === '&') return ['', img(ch.npcs[world.npcAt[r + ',' + c]].spr)];
-    if (t >= 'a' && t <= 'e') return ['', img(ch.sages[t.charCodeAt(0) - 97].spr)];
-    if (t >= 'A' && t <= 'E') return ['foe-tile', img(MONSTERS[ch.levels[t.charCodeAt(0) - 65]].spr)];
-    return ['', ''];
+    // anything standing in the water sits on a little sand island
+    const ch = CH(), v = ((r * 7 + c * 13) ^ (r * c)) & 3, floor = t !== '#' && rowsAround(r, c).includes('~') && !/[ ]/.test(rowsAround(r, c)) ? 'g-isle' : 'g-f' + v;
+    if (t === '#') return [floor, img(ch.wall)];
+    if (t === '^') return [floor, img('boulder')];
+    if (t === '~') return ['water g-water', ''];
+    if (t === '=') return ['g-stone', ''];
+    if (t === 'o') return ['g-isle', '<b class="isle">o</b>'];
+    if (t === '.') return [rowsAround(r, c).includes('~') ? 'g-isle' : 'g-path' + (v & 1), ''];
+    if (OBJ[t]) return [floor + (t === '>' ? ' portal' : ''), img(OBJ[t])];
+    if (t === '&') return [floor, img(ch.npcs[world.npcAt[r + ',' + c]].spr)];
+    // a sage you haven't talked to yet shows a bouncing "!" over their head
+    if (t >= 'a' && t <= 'e') { const i = t.charCodeAt(0) - 97; return [floor, img(ch.sages[i].spr) + (S.learned.includes(ch.levels[i]) ? '' : '<b class="talk">!</b>')]; }
+    if (t >= 'A' && t <= 'E') return [floor + ' foe-tile', img(MONSTERS[ch.levels[t.charCodeAt(0) - 65]].spr)];
+    return [floor, ''];
+  }
+  // water meets land: the bank casts a shadow from above, foam laps the other sides
+  const WET = '~=o';
+  function shore(r, c) {
+    const land = (dr, dc) => { const t = world.at(r + dr, c + dc); return t !== undefined && !WET.includes(t) && !(t === '.' && rowsAround(r + dr, c + dc).includes('~')); };
+    const s = [];
+    if (land(-1, 0)) s.push('inset 0 var(--p) #d8f3ff99', 'inset 0 calc(var(--p) * 4) #0005');
+    if (land(1, 0)) s.push('inset 0 calc(var(--p) * -1) #d8f3ff99');
+    if (land(0, -1)) s.push('inset var(--p) 0 #d8f3ff99');
+    if (land(0, 1)) s.push('inset calc(var(--p) * -1) 0 #d8f3ff99');
+    return s.length ? ` style="box-shadow:${s.join(',')}"` : '';
   }
   // a path tile surrounded by water is drawn as an island
   const rowsAround = (r, c) => [world.at(r, c - 1), world.at(r, c + 1), world.at(r - 1, c), world.at(r + 1, c)].join('');
 
   function draw() {
     const ch = CH(), rows = world.lines, ro = new Set(world.roamers.map(m => m.r + ',' + m.c));
+    if (groundOf !== ch) {
+      groundOf = ch;
+      groundCss.textContent = Object.entries(groundTiles(ch.ground)).map(([k, url]) => `.${k}{background-image:url("${url}")}`).join('\n');
+    }
     let h = '';
     rows.forEach((row, r) => {
       h += `<div class="g">${r + 1}</div>`;
@@ -110,11 +133,11 @@ export function startGame() {
         let [cls, e] = tile(t, r, c);
         if (r === world.r && c === world.c) e = `<span class="hero">${img('hero', face < 0 ? 'flip' : '')}</span>`;
         else if (ro.has(r + ',' + c)) e = `<span class="roam">${img(ch.roamer)}</span>`;
-        h += `<div class="t ${cls}">${e}</div>`;
+        h += `<div class="t ${cls}"${t === '~' ? shore(r, c) : ''}>${e}</div>`;
       });
     });
     const map = $('map');
-    map.style.setProperty('--floor', ch.floor);
+    map.style.setProperty('--floor', ch.ground.ramp[1]);
     map.style.gridTemplateColumns = `auto repeat(${rows[0].length}, var(--t))`;
     map.innerHTML = h;
     map.querySelector('.hero').scrollIntoView({ block: 'center', inline: 'center' });
@@ -146,7 +169,7 @@ export function startGame() {
       if (t === '%') { S.hearts = Math.min(MAX_HEARTS, S.hearts + 1); note(T().heal); }
       if (t === '+') { S.keys++; note(T().keyFound); }
     }
-    if (ev.hurt) return hurt();
+    if (ev.foe) { save(); draw(); return encounter(ev.foe); }
     if (ev.exit) return nextChapter();
     if (ev.bump) bump(ev.bump);
     if ((ev.bump || ev.blocked) && ![[0, 1], [0, -1], [1, 0], [-1, 0]].some(([dr, dc]) => world.walkable(world.r + dr, world.c + dc))) note(T().stuck);
@@ -210,9 +233,17 @@ export function startGame() {
     }
     return p[b.length];
   }
-  function startBattle(id, training) {
-    const m = MONSTERS[id];
-    B = { id, training, R: rng(Date.now() | 0), round: 0, total: id === 'boss' ? BOSS_ROUNDS : ROUNDS, hp: D_().hp, keys: 0, par: 0, state: 'fight' };
+  // touching a roaming monster starts a quick timed fight of a random kind
+  function encounter(roamer) {
+    const kind = pickR(Math.random, Object.keys(FIGHTS)), name = tx(ROAMERS[CH().roamer]);
+    say([[name, T().encounter(name, ...T().fights[kind]), CH().roamer]], () => startBattle(null, false, { roamer, kind }));
+  }
+  // id: a gate monster's spell; foe: { roamer, kind } for a roaming monster (each round a random learned spell)
+  function startBattle(id, training, foe = null) {
+    clearInterval(B?.timer);
+    const m = foe ? { spr: CH().roamer, name: ROAMERS[CH().roamer] } : MONSTERS[id];
+    B = { id, training, foe, R: rng(Date.now() | 0), round: 0, total: foe ? FIGHTS[foe.kind].rounds : id === 'boss' ? BOSS_ROUNDS : ROUNDS,
+      hp: D_().hp, keys: 0, par: 0, state: 'fight', timer: setInterval(tickBattle, 100) };
     $('foeIcon').className = 'sprite'; $('foeIcon').innerHTML = img(m.spr);
     $('meIcon').innerHTML = img('hero');
     $('foeName').textContent = tx(m.name);
@@ -221,21 +252,35 @@ export function startGame() {
     newRound();
   }
   function newRound() {
-    B.lv = makeRound(B.id, B.R, B.round, learnedSet());
+    B.spell = B.foe ? pickR(B.R, [...learnedSet()].filter(id => id !== 'boss')) : B.id;
+    B.lv = makeRound(B.spell, B.R, B.foe ? 1 + B.round : B.round, learnedSet());
     B.run = new Run(B.lv);
-    B.d0 = B.run.gemMode ? 1 : lev(B.lv.start, B.lv.goal) || 1;
-    B.hint = ''; B.note = B.round ? '' : (B.run.gemMode ? T().gemNote : T().goalNote);
-    const lv = LV[B.id];
+    B.d0 = lev(B.lv.start, B.lv.goal) || 1;
+    B.hint = ''; B.note = B.round ? '' : T().goalNote;
+    B.secs = roundSecs(B.lv.par, D_().pace, B.foe ? FIGHTS[B.foe.kind].time : 1);
+    B.end = Date.now() + B.secs * 1000;
+    const lv = LV[B.spell];
     $('bKeys').innerHTML = lv.keys.map(([k, d]) => `<span><kbd>${esc(k)}</kbd> ${esc(d)}</span>`).join('');
     $('bLearn').textContent = lv.learn;
-    $('bGoalPane').hidden = B.run.gemMode;
-    $('bPanes').classList.toggle('solo', B.run.gemMode);
     renderBattle();
   }
-  const roundLeft = () => { const r = B.run; return r.gemMode ? 1 - r.got.size / r.gems : Math.min(1, lev(r.vim.text, r.level.goal) / B.d0); };
+  const roundLeft = () => Math.min(1, lev(B.run.vim.text, B.run.level.goal) / B.d0);
   function hit(id) { const el = $(id); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
+  // the clock only runs while fighting; at zero the monster wins
+  function tickBattle() {
+    if (B.state !== 'fight') return;
+    const left = Math.max(0, B.end - Date.now());
+    $('bTime').style.width = (left / (B.secs * 1000)) * 100 + '%';
+    $('bTime').parentElement.classList.toggle('low', left < B.secs * 250);
+    $('bClock').textContent = `⏱ ${Math.ceil(left / 1000)}s`;
+    if (!left) { B.state = 'lost'; B.note = T().timeUp + ' ' + lostNote(); renderBattle(); }
+  }
+  const lostNote = () => (B.foe ? T().lostRoam : T().lost);
+  function endBattle() { clearInterval(B.timer); $('battle').hidden = true; B = null; }
+  // losing to a roamer costs a heart, like fleeing from one
+  const roamerLost = () => { endBattle(); hurt(); };
   function battleKey(k) {
-    if (B.state === 'lost') { if (k === '<CR>') startBattle(B.id, B.training); return; }
+    if (B.state === 'lost') { if (k === '<CR>') B.foe ? roamerLost() : startBattle(B.id, B.training); return; }
     if (B.state !== 'fight') return;
     if (k.startsWith('Arrow')) { B.hp -= 3; B.note = T().arrowBurn; hit('meIcon'); return afterHit(); }
     const miss = locked(B.run.vim, k, learnedSet());
@@ -249,7 +294,7 @@ export function startGame() {
     afterHit();
   }
   function afterHit() {
-    if (B.hp <= 0) { B.hp = 0; B.state = 'lost'; B.note = T().lost; }
+    if (B.hp <= 0) { B.hp = 0; B.state = 'lost'; B.note = lostNote(); }
     renderBattle();
   }
   function roundWon() {
@@ -263,9 +308,15 @@ export function startGame() {
     }, 800);
   }
   function winBattle() {
+    if (B.foe) {
+      const gold = 5 * B.total, name = tx(ROAMERS[CH().roamer]), { roamer } = B.foe;
+      world.roamers = world.roamers.filter(r => r !== roamer);
+      S.gold += gold; endBattle(); save(); draw();
+      return say([[T().victory, T().roamWon(name, gold), CH().roamer]], draw);
+    }
     const { id, training, keys, par } = B, m = MONSTERS[id], s = stars({ par }, keys), first = S.best[id] == null;
     S.best[id] = Math.max(S.best[id] || 0, s);
-    $('battle').hidden = true; B = null;
+    endBattle();
     if (!training) { const p = world.find(String.fromCharCode(65 + CH().levels.indexOf(id))); if (p) world.set(p.r, p.c, ' '); }
     const lines = [[T().victory, T().defeated(tx(m.name), '★'.repeat(s) + '☆'.repeat(3 - s), keys, par), m.spr]];
     if (first) lines.push(hero(T().grew(level())));
@@ -273,30 +324,43 @@ export function startGame() {
     save(); draw();
     say(lines, draw);
   }
-  function line(run, l, r, v, cls) {
+  // indices of a's chars left out of a longest common subsequence with b: what b is missing
+  function unmatched(a = '', b = '') {
+    const L = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+    for (let i = a.length - 1; i >= 0; i--) for (let j = b.length - 1; j >= 0; j--)
+      L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    const out = new Set();
+    for (let i = 0, j = 0; i < a.length;) {
+      if (j < b.length && a[i] === b[j]) { i++; j++; }
+      else if (j < b.length && L[i][j + 1] >= L[i + 1][j]) j++;
+      else out.add(i++);
+    }
+    return out;
+  }
+  // mark: class for the chars the other side doesn't have ('extra' in your text, 'miss' in the goal)
+  function line(l, r, v, cls, other, mark) {
     let h = '';
-    const n = Math.max(l.length, v && r === v.r ? v.c + 1 : 0, 1);
+    const n = Math.max(l.length, v && r === v.r ? v.c + 1 : 0, 1), diff = unmatched(l, other);
     for (let c = 0; c < n; c++) {
       const ch = l[c] ?? ' ';
-      let k = run.gemMode && ch === '*' ? (run.got.has(r + ',' + c) ? 'got' : 'gem') : '';
-      if (v && r === v.r && c === v.c) k += v.mode === 'insert' ? ' cur ins' : ' cur';
+      const k = [diff.has(c) && mark, v && r === v.r && c === v.c && (v.mode === 'insert' ? 'cur ins' : 'cur')].filter(Boolean).join(' ');
       h += k ? `<span class="${k}">${esc(ch)}</span>` : esc(ch);
     }
     return `<div class="ln ${cls}"><i>${r + 1}</i>${h}</div>`;
   }
   function renderBattle() {
-    const run = B.run, v = run.vim, goal = run.level.goal?.split('\n');
-    $('bBuf').innerHTML = v.lines.map((l, r) => line(run, l, r, v, goal && l !== goal[r] ? 'bad' : '')).join('');
-    if (goal) $('bGoal').innerHTML = goal.map((l, r) => line(run, l, r, null, l === v.lines[r] ? 'ok' : '')).join('');
+    const run = B.run, v = run.vim, goal = run.level.goal.split('\n');
+    $('bBuf').innerHTML = v.lines.map((l, r) => line(l, r, v, l !== goal[r] ? 'bad' : '', goal[r], 'extra')).join('');
+    $('bGoal').innerHTML = goal.map((l, r) => line(l, r, null, l === v.lines[r] ? 'ok' : '', v.lines[r], 'miss')).join('');
     const foe = B.state === 'pause' ? (B.total - B.round) / B.total : (B.total - B.round - 1 + roundLeft()) / B.total;
     $('foeHP').style.width = foe * 100 + '%';
-    $('round').textContent = `${T().round} ${Math.min(B.round + 1, B.total)}/${B.total}`;
+    $('round').textContent = (B.foe ? T().fights[B.foe.kind][0] + ' · ' : '') + `${T().round} ${Math.min(B.round + 1, B.total)}/${B.total}`;
     $('meHP').style.width = (B.hp / D_().hp) * 100 + '%';
     $('meHPtxt').textContent = `${S.lang === 'es' ? 'PV' : 'HP'} ${B.hp}/${D_().hp}`;
     $('bMode').textContent = v.mode === 'insert' ? T().insert : 'NORMAL';
     $('bMode').className = 'mode ' + v.mode;
     $('bPending').textContent = v.pending;
-    $('bCount').textContent = T().keysPar(run.keys, B.lv.par) + (run.gemMode ? T().gems(run.got.size, run.gems) : '') + (run.keys > B.lv.par ? T().overPar : '');
+    $('bCount').textContent = T().keysPar(run.keys, B.lv.par) + (run.keys > B.lv.par ? T().overPar : '');
     $('bNote').textContent = nm(B.note || '');
     $('bHint').textContent = B.hint ? T().whisper(B.hint) : '';
   }
@@ -363,7 +427,8 @@ export function startGame() {
         B.run = new Run(B.lv); B.note = T().restarted; return renderBattle();
       case 'q': case 'q!': case 'quit':
         if (!B) return err(T().noEscape);
-        $('battle').hidden = true; B = null; draw(); return showCmd(T().fled);
+        if (B.foe) return roamerLost();
+        endBattle(); draw(); return showCmd(T().fled);
       case 'name':
         if (!arg) return err(T().nameArg);
         S.name = arg.slice(0, 12); save(); draw(); return showCmd(T().hello(S.name));
@@ -381,13 +446,13 @@ export function startGame() {
         return wizard(spellCards(lv.id));
       }
       case 'dojo': return notInBattle() || startDojo();
-      case 'fs': case 'fullscreen': return document.fullscreenElement ? document.exitFullscreen() : fullscreen();
+      case 'lessons': case 'index': case 'ls': return notInBattle() || openIndex();
       case 'menu': return notInBattle() || showMenu();
       case 'w': save(); return showCmd(T().written);
       case 'wq': case 'x': save(); return showCmd(T().seeYou);
       case 'new': return err(T().newNo);
       case 'new!':
-        if (B) { $('battle').hidden = true; B = null; }
+        if (B) endBattle();
         return showMenu('name');
       default: return err(T().notCmd(c));
     }
@@ -395,21 +460,28 @@ export function startGame() {
 
   // ---------- title menu ----------
   let M = null;
-  const fullscreen = () => document.documentElement.requestFullscreen?.().catch(() => {});
   const started = () => S.seen.length > 0;
-  const menuOpts = () => M.step === 'diff'
-    ? Object.keys(DIFF).map(id => [id, ...T().diff[id]])
+  // new game: name → diff → text (plain / code) → langs (code only) → loading
+  const BACK = { diff: 'name', text: 'diff', langs: 'text' };
+  const menuOpts = () => M.step === 'diff' ? Object.keys(DIFF).map(id => [id, ...T().diff[id]])
+    : M.step === 'text' ? ['plain', 'code'].map(id => [id, ...T().textKind[id]])
+    : M.step === 'langs' ? Object.entries(CODE_LANGS).map(([id, [label]]) => [id, (M.langs.includes(id) ? '☑ ' : '☐ ') + label, ''])
     : [...(started() ? [['continue', T().cont, `${S.name} · ${tx(CH().name)}`]] : []),
       ['new', T().newGame, T().newSub(started())],
+      ...(started() ? [['lessons', T().idxOpt, T().idxSub]] : []),
       ['dojo', T().dojo, T().dojoSub(S.dojo)],
       ['lang', T().langOpt, T().langSub]];
-  function showMenu(step = 'main') { M = { step, i: 0, name: '' }; $('menu').hidden = false; renderMenu(); }
+  function showMenu(step = 'main') { M = { step, i: 0, name: '', langs: [] }; $('menu').hidden = false; renderMenu(); }
+  const MENU_H = { diff: () => T().chooseLevel(M.name), text: () => T().textQ, langs: () => T().langsQ };
   function renderMenu() {
+    $('mHelp').textContent = M.step === 'langs' ? T().langsHelp : T().menuHelp;
+    if (M.step === 'loading') return void ($('mBody').innerHTML = `<h3>${esc(T().loading)}</h3>`);
     if (M.step === 'name') return void ($('mBody').innerHTML = `<h3>${esc(T().nameQ)}</h3><div class="name-in">${img('hero')} ${esc(M.name)}▏</div><small class="help">${esc(T().nameHelp)}</small>`);
-    $('mBody').innerHTML = (M.step === 'diff' ? `<h3>${esc(T().chooseLevel(M.name))}</h3>` : '') +
+    $('mBody').innerHTML = (MENU_H[M.step] ? `<h3>${esc(MENU_H[M.step]())}</h3>` : '') +
       menuOpts().map(([, label, sub], i) => `<div class="opt${i === M.i ? ' sel' : ''}">${esc(label)}<small>${esc(sub)}</small></div>`).join('');
   }
   function menuKey(k) {
+    if (M.step === 'loading') return;
     if (M.step === 'name') {
       if (k === '<CR>') { M.name = M.name.trim() || 'Prompt'; M.step = 'diff'; M.i = 1; }
       else if (k === '<Esc>') { M.step = 'main'; M.i = 0; }
@@ -420,22 +492,35 @@ export function startGame() {
     const opts = menuOpts();
     if (k === 'j') M.i = (M.i + 1) % opts.length;
     else if (k === 'k') M.i = (M.i + opts.length - 1) % opts.length;
-    else if (k === '<Esc>' && M.step === 'diff') M.step = 'name';
+    else if (k === '<Esc>' && BACK[M.step]) { M.step = BACK[M.step]; M.i = 0; }
+    else if (k === ' ' && M.step === 'langs') toggleLang(opts[M.i][0]);
     else if (k === '<Esc>' && started()) return closeMenu();
     else if (k === '<CR>' || k === ' ') return pick(opts[M.i][0]);
     renderMenu();
   }
+  const toggleLang = id => { M.langs = M.langs.includes(id) ? M.langs.filter(l => l !== id) : [...M.langs, id]; };
   function pick(id) {
+    if (M.step === 'diff') { M.diff = id; M.step = 'text'; M.i = 0; return renderMenu(); }
+    if (M.step === 'text') { if (id === 'plain') return begin('plain', []); M.step = 'langs'; M.i = 0; return renderMenu(); }
+    // Enter with nothing ticked plays the highlighted language
+    if (M.step === 'langs') return begin('code', M.langs.length ? M.langs : [id]);
     if (id === 'continue') { closeMenu(); return intro(); }
     if (id === 'new') { M.step = 'name'; return renderMenu(); }
     if (id === 'dojo') return startDojo();
+    if (id === 'lessons') return openIndex();
     if (id === 'lang') { S.lang = S.lang === 'es' ? 'en' : 'es'; save(); applyLang(); draw(); return renderMenu(); }
-    const { dojo, lang } = S;
-    S = { ...fresh(), name: M.name, diff: id, hearts: DIFF[id].hearts, dojo, lang };
+  }
+  async function begin(kind, langs) {
+    M.step = 'loading'; renderMenu();
+    const lines = await download(kind, langs).catch(() => []);
+    const { dojo, lang } = S, { name, diff } = M;
+    S = { ...fresh(), name, diff, hearts: DIFF[diff].hearts, dojo, lang, text: { kind, langs, lines } };
+    useText(lines, kind === 'code');
     loadWorld(); save(); draw(); closeMenu();
+    if (!lines.length) note(T().textFail);
     wizard(onboard(), intro);
   }
-  function closeMenu() { M = null; $('menu').hidden = true; fullscreen(); draw(); }
+  function closeMenu() { M = null; $('menu').hidden = true; draw(); }
 
   // ---------- key wizard: one card per key, type the key to go on ----------
   const onboard = () => T().onboard.map(([title, key, text]) => ({ title, key, text }));
@@ -537,6 +622,42 @@ export function startGame() {
     renderDojo();
   }
 
+  // ---------- lesson index: every spell with its commands; replay any monster you've beaten ----------
+  let I = null;
+  const ORDER = CHAPTERS.flatMap(ch => ch.levels.map(id => ({ id, ch })));
+  function openIndex() {
+    I = { i: Math.min(ORDER.length - 1, ORDER.findIndex(o => S.best[o.id] == null) >>> 0) };
+    $('index').hidden = false; renderIndex();
+  }
+  function closeIndex() { I = null; $('index').hidden = true; if (M) renderMenu(); }
+  function renderIndex(msg) {
+    let h = '', last = null;
+    ORDER.forEach(({ id, ch }, i) => {
+      if (ch !== last) { last = ch; h += `<h4>${esc(tx(ch.name))}</h4>`; }
+      const best = S.best[id], mark = best != null ? '★'.repeat(best) + '☆'.repeat(3 - best) : learnedSet().has(id) ? '·' : '🔒';
+      h += `<div class="opt${i === I.i ? ' sel' : ''}${best == null ? ' dim' : ''}">${esc(LV[id].title)}<span class="mk">${mark}</span></div>`;
+    });
+    $('iList').innerHTML = h;
+    $('iList').querySelector('.sel').scrollIntoView({ block: 'nearest' });
+    const { id } = ORDER[I.i], l = LV[id], m = MONSTERS[id], won = S.best[id] != null;
+    const buf = (text, other, mark) => `<div class="buf">${text.split('\n').map((t, r) => line(t, r, null, '', other.split('\n')[r], mark)).join('')}</div>`;
+    $('iPage').innerHTML = `<h3>${esc(l.title)}</h3><p>${esc(nm(l.learn))}</p>
+      <table class="keys">${l.keys.map(([k, d]) => `<tr><td><kbd>${esc(k)}</kbd></td><td>${esc(d)}</td></tr>`).join('')}</table>
+      <div class="ex"><div><h4>${esc(T().yourText)}</h4>${buf(l.start, l.goal, 'extra')}</div><div><h4>${esc(T().goal)}</h4>${buf(l.goal, l.start, 'miss')}</div></div>
+      <p class="foe">${img(m.spr)}<span>${esc(won ? T().idxPlay(tx(m.name)) : T().idxLocked(tx(m.name)))}</span></p>`;
+    $('iHelp').textContent = msg || T().idxHelp;
+  }
+  function indexKey(k) {
+    if (k === 'j' || k === 'k') { I.i = (I.i + (k === 'j' ? 1 : ORDER.length - 1)) % ORDER.length; return renderIndex(); }
+    if (k === '<Esc>' || k === 'q') return closeIndex();
+    if (k !== '<CR>') return;
+    const { id } = ORDER[I.i];
+    if (S.best[id] == null) return renderIndex(T().notBeaten(tx(MONSTERS[id].name)));
+    closeIndex();
+    if (M) closeMenu();
+    startBattle(id, true);
+  }
+
   // ---------- input ----------
   function onKey(e) {
     if (e.metaKey || e.altKey) return;
@@ -551,6 +672,7 @@ export function startGame() {
     e.preventDefault();
     if (cmd !== null) return cmdKey(k);
     if (D) return dojoKey(k);
+    if (I) return indexKey(k);
     if (M) return menuKey(k);
     if (W) return wizKey(k);
     if (!$('dialog').hidden) return dialogKey(k);
@@ -563,5 +685,5 @@ export function startGame() {
   document.addEventListener('keydown', onKey);
   $('mVs').innerHTML = `${img('hero')}<b>VS</b>${img('clicker', 'villain')}`;
   applyLang(); loadWorld(); draw(); showMenu();
-  return () => { document.removeEventListener('keydown', onKey); clearInterval(D?.timer); clearInterval(handTimer); css.remove(); };
+  return () => { document.removeEventListener('keydown', onKey); clearInterval(D?.timer); clearInterval(B?.timer); clearInterval(handTimer); css.remove(); };
 }
