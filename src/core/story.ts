@@ -1,0 +1,353 @@
+// vim-tales story: chapters, maps and monsters, in English and Spanish. Each level id from engine.ts gets a sage + a gate monster.
+// Map legend:  # wall  ^ rock  ~ water  H house   (blocked)
+//              ' ' grass  . path/island  = stepping-stone  (walkable; '=' counts as a word for w/b/e)
+//              o  island (walkable, blank for w/b/e: reach it with fo / Fo / ;)
+//              $ treasure  % heart  + key  | door (needs a key)  > exit  @ start
+//              & villager   a-e sage teaching chapter.levels[i]   A-E monster guarding that level's battle
+//              M / W  roaming monster patrolling horizontally / vertically
+// Sprite names (spr, wall, roamer) come from sprites.ts.
+import type { SpellId } from './engine.ts';
+// text in both languages: [english, spanish]
+export type Tx = [en: string, es: string];
+// a story line: [sprite, speaker, text]. sprite 'hero' speaks with the player's name, '' is the narrator
+export type Line = [spr: string, who: Tx | '', text: Tx];
+export interface Person { spr: string; name: Tx; say: Tx[] }
+export interface Chapter {
+  name: Tx; floor: string; wall: string; roamer: string;
+  intro: Line[]; map: string[]; levels: SpellId[]; sages: Person[]; npcs: Person[];
+}
+export interface Monster { spr: string; name: Tx; taunt: Tx }
+
+const MAPS: string[][] = [
+  [
+    '########################################',
+    '#H  &   #     $#    M         #    $   #',
+    '#  @ a  #  ##  #  ####  ####  #  ###   #',
+    '#       #  #   #     #     #  #    #   #',
+    '#  ###     #####  #  #  #  #     #  +  #',
+    '#  #$#  M         #     #  ####  #     #',
+    '#       ####  &   #######        #|##  #',
+    '#H  $      #           M         #$ #  #',
+    '####A###################################',
+    '#  b  &  ~~~~~~~~~~~~~~~~~~~~          #',
+    '#        ~~~~~~~~~~~~~~~~~~~~          #',
+    '#   %    ==~~~~~$~~~~==~~~~~~          #',
+    '#        ~~~~~~~~~~~~~~~~~~~~    $     #',
+    '#   M    ==~~==~~~=~~~===~~==          #',
+    '#        ~~~~~~~~~~~~~~~~~~~~          #',
+    '#  $     =~~~=~~~~~~~=~~~~~$~          #',
+    '##############################B#########',
+    '#     c                                 ',
+    '######################################  ',
+    '   M        $          M         M      ',
+    '  ######################################',
+    '        $      M             M     $    ',
+    '######################################  ',
+    '  $  M          M        M              ',
+    '  ######################################',
+    '   $        M          M                ',
+    '#######################################C',
+    '  $                 >                   ',
+  ],
+  [
+    '$###################################',
+    '  $#################################',
+    '####################################',
+    '#@  a       #           #     &    #',
+    '#           #   ####    #          #',
+    '#     M         #  #  M #  ######  #',
+    '#  ######       # $#    #  #       #',
+    '#  #         #  #  #       #  $    #',
+    '#  #   M     #  #  #    W  ######  #',
+    '#  ######    #                     #',
+    '#            #  M       #     W    #',
+    '   .   &     #          #          #',
+    '#################A##################',
+    '#  b                      &        #',
+    '#~~~o~~~~~~~~o~~~~~~~~~~~~~$~~~~~~~#',
+    '#~~~~~~~~~~~~o~~~~~$~~~~~o~~~~~~~~~#',
+    '#~~~~~~~~~~~~~~~~~~~~~~~~o~~~~~~~~~#',
+    '#~~~~~~~o~~~~~~~~~~~~~~~~o~~~~~~$~~#',
+    '#~~~~~~~o~~~~~~~~~~~~~~~~~~~~~~~~~~#',
+    '#~~~~~~~.~~~~~~~~~~~~~~~~~~~~~~~~~~#',
+    '#       B                          #',
+    '#  $                        >      #',
+    '####################################',
+  ],
+  [
+    '####################################',
+    '#@  a   ~~~~   #      M        $   #',
+    '#       ~~~~   #   ######   ####   #',
+    '#  &    ~~==== #   #    #   #  #   #',
+    '#       ~~~~   #   # $  #   #+ #   #',
+    '#####   ~~~~       #    #          #',
+    '#   #          M   ###  #####  ### #',
+    '# $ |      ~~~~~~           & #$#  #',
+    '#   #      ~~~~~~      M      # #  #',
+    '##################A#################',
+    '#  b             &                 #',
+    '#~~~~.~~~~~~==~~~~~~=~~~~~~$~~~~~~~#',
+    '#~~~~~~~~~~~~~~~~~~~=~~~~~~~~~~~~~~#',
+    '#~~~~~~~.~~~~~~~~~~~=~~~~~~~==~~~~~#',
+    '#~~~~~~~.~~~~~~~~~~~~~~~~~~~~=~~~~~#',
+    '#~~~~~~~.~~~~~~$~~~~~~~~~~~~~=~~~~~#',
+    '#~~~~~~~~~~~~~~~~~~~~~~~~~~~~=~~~~~#',
+    '#           %                   &  #',
+    '######B#############################',
+    '#  c                               #',
+    '################ ###################',
+    '#    $   M          M         $    #',
+    '################ ###################',
+    '#  M         M              M   +  #',
+    '################ ###################',
+    '# $     M         M          M   $ #',
+    '################C###################',
+    '#$$|                              >#',
+    '####################################',
+  ],
+  [
+    '##################################',
+    '#@ a    ^^^^    W        ^^^  $  #',
+    '#       ^  ^         ^^       ^^ #',
+    '####    ^$ ^   ^^^^  ^^  M       #',
+    '#  ^    ^^ ^      ^       ^^^^   #',
+    '#  $       ^  &   ^   ^      ^   #',
+    '#  ^^^^^^^^^      ^^^^^      ^ $ #',
+    '#        M           W       ^   #',
+    '#   %          ^^^          $^   #',
+    '##############A###################',
+    '#  b         &                   #',
+    '#~~~~~~~.~~~~~~~~~~~~~==~~~~~~~~~#',
+    '#~~~~~~~~~~~~~~~~~~~~~~=~~~~~~~$~#',
+    '#~~~.~~~~~~~~~~~~~~~~~~=~~~~~~~~~#',
+    '#~~~.~~~~~$~~~~~~~~~~~~~~~~~~~~~~#',
+    '#~~~.~~~~~~~~~~~~~~~~~~~~~~~~~~~~#',
+    '#   B                            #',
+    '###########c################  ####',
+    '#=  M      $      M        M     #',
+    '# ################################',
+    '# $   M         M        M   =   #',
+    '#############################C####',
+    '#  $  >                          #',
+    '##################################',
+  ],
+  [
+    '##############################',
+    '#     ^^^^^             $    #',
+    '#  E  ^^^^^      e           #',
+    '#     M          M           #',
+    '###########################D##',
+    '#     W           W          #',
+    '#d        ^^^   $   ^^^      #',
+    '#  $        W           W    #',
+    '##C###########################',
+    '#   ~~~~~~~~~~~~~~~~~~       #',
+    '#   .~~.~~~~~.~~~~~.~~  c    #',
+    '#   ~~~~~~~~~$~~~~~~~~       #',
+    '##########################B###',
+    '#      ~~~~~~~~~~~      $    #',
+    '#  b   ~~=~~==~~~=   M       #',
+    '#   %  ~~~~~~~~~~~           #',
+    '###A##########################',
+    '#   $        M               #',
+    '#   ^^^^^^^^^^^^^^^^^^^^^    #',
+    '#@  a      M          $      #',
+    '##############################',
+  ],
+];
+
+const CHAPTERS: Chapter[] = [
+  {
+    name: ['Chapter I — Hjkl Village', 'Capítulo I — Aldea Hjkl'], floor: '#4a7c3a', wall: 'pine', roamer: 'rat',
+    intro: [
+      ['', '', ['THE YEAR IS 198X. In the 8-bit kingdom of TEXTORIA, every word was typed by hand on glowing green screens.',
+        'CORRE EL AÑO 198X. En el reino de 8 bits de TEXTORIA, cada palabra se escribía a mano en brillantes pantallas verdes.']],
+      ['', '', ['Then DR. CLICKER crawled out of his MOUSE LAB. One double-click, and the ARROW CURSE fell: hands fled the home row and the words began to rot.',
+        'Entonces el DR. CLICKER salió de su LABORATORIO DEL RATÓN. Un doble clic, y cayó la MALDICIÓN DE LAS FLECHAS: las manos huyeron de la fila guía y las palabras empezaron a pudrirse.']],
+      ['', '', ['Only one cursor still blinks in Hjkl Village. Its name is PROMPT. PRESS START... I mean, Enter.',
+        'Solo un cursor sigue parpadeando en la Aldea Hjkl. Se llama PROMPT. PULSA START... digo, Enter.']],
+      ['hero', '', ['Rats roam the village and move every time I act. Ctrl-o takes me back to the last sage. First stop: Elder Hjkl!',
+        'Las ratas recorren la aldea y se mueven cada vez que actúo. Ctrl-o me lleva al último sabio. Primera parada: ¡el Anciano Hjkl!']],
+      ['', '', ['TIP: type : for the command line. :help lists every command and setting, :quest tells you where to go.',
+        'CONSEJO: escribe : para la línea de comandos. :help muestra comandos y ajustes, :quest te dice adónde ir.']],
+    ],
+    map: MAPS[0],
+    levels: ['hjkl', 'words', 'edges'],
+    sages: [
+      { spr: 'elder', name: ['Elder Hjkl', 'Anciano Hjkl'], say: [
+        ['It\'s dangerous to click alone! Take this: h j k l. A true hero never leaves the home row.', '¡Es peligroso hacer clic solo! Toma esto: h j k l. Un verdadero héroe nunca abandona la fila guía.'],
+        ['The Arrow Rat guards the river road. Beat it at its own game: grab every ★ gem first.', 'La Rata Flecha vigila el camino del río. Gánale en su propio juego: atrapa cada gema ★ primero.'],
+      ] },
+      { spr: 'wanderer', name: ['Wanderer Wen', 'Viajero Wen'], say: [
+        ['That river can\'t be walked. But see the stepping-stones? Each one is a WORD.', 'Ese río no se puede caminar. ¿Ves las piedras? Cada una es una PALABRA.'],
+        ['Stand on the bank and leap from word to word. The water is just blank space.', 'Párate en la orilla y salta de palabra en palabra. El agua es solo espacio en blanco.'],
+      ] },
+      { spr: 'margin', name: ['Old Margin', 'Vieja Margen'], say: [
+        ['Below are the rat tunnels: long lines full of vermin.', 'Abajo están los túneles de ratas: líneas largas llenas de alimañas.'],
+        ['Don\'t walk them. Leap to the very edge with 0 or $, and the rats in between can\'t touch you.', 'No los camines. Salta al borde con 0 o $, y las ratas de en medio no podrán tocarte.'],
+        ['I hid at the far end of the last tunnel. Leap there and look down.', 'Me escondí al final del último túnel. Salta hasta allí y mira hacia abajo.'],
+      ] },
+    ],
+    npcs: [
+      { spr: 'mom', name: ['Mom', 'Mamá'], say: [
+        ['PROMPT! Dr. Clicker\'s rats chewed through the village. Take care out there, honey.', '¡PROMPT! Las ratas del Dr. Clicker royeron toda la aldea. Cuídate ahí fuera, cariño.'],
+        ['Press Enter or Space to keep talking. And grab the treasure in the houses. Nobody will mind.', 'Pulsa Enter o Espacio para seguir hablando. Y toma el tesoro de las casas. A nadie le importará.'],
+      ] },
+      { spr: 'farmer', name: ['Farmer', 'Granjero'], say: [
+        ['There\'s a locked shed by the east fence. I lost the key near the old well.', 'Hay un cobertizo cerrado junto a la cerca del este. Perdí la llave cerca del viejo pozo.'],
+        ['A key opens one door. Walk into the door with a key and it opens.', 'Una llave abre una puerta. Camina hacia la puerta con una llave y se abrirá.'],
+      ] },
+      { spr: 'fisher', name: ['Fisher', 'Pescador'], say: [
+        ['I used to fish with a mouse. Now I just... click at the water. Nothing bites.', 'Antes pescaba con un ratón. Ahora solo... hago clic en el agua. Nada pica.'],
+        ['Some stones lead nowhere. Stuck out there? Leap back with b.', 'Algunas piedras no llevan a ninguna parte. ¿Atascado? Salta atrás con b.'],
+      ] },
+    ],
+  },
+  {
+    name: ['Chapter II — The Counting Fields', 'Capítulo II — Los Campos Contados'], floor: '#7a8f3a', wall: 'oak', roamer: 'boar',
+    intro: [
+      ['', '', ['STAGE 2. Golden 8-bit fields stretch east. Wild boars charge down every path.', 'NIVEL 2. Campos dorados de 8 bits se extienden al este. Jabalíes salvajes cargan por cada sendero.']],
+      ['hero', '', ['The boars move each time I act... if I cover many steps in ONE command, they\'ll never catch me.', 'Los jabalíes se mueven cada vez que actúo... si recorro muchos pasos en UN comando, nunca me atraparán.']],
+    ],
+    map: MAPS[1],
+    levels: ['counts', 'find'],
+    sages: [
+      { spr: 'nine', name: ['Farmer Nine', 'Granjero Nueve'], say: [
+        ['Took you long enough. Out here we count everything, even our steps.', 'Cuánto tardaste. Aquí contamos todo, hasta nuestros pasos.'],
+        ['See the numbers down the left side of the world? LINE numbers. They matter.', '¿Ves los números en el borde izquierdo del mundo? Números de LÍNEA. Importan.'],
+        ['Rumor says treasure is buried on line 1 and line 2, sealed where no foot can walk...', 'Dicen que hay un tesoro enterrado en la línea 1 y la 2, sellado donde ningún pie puede llegar...'],
+      ] },
+      { spr: 'seeker', name: ['Seeker Fen', 'Buscadora Fen'], say: [
+        ['You can\'t see me unless you know what to look for. The lake is the same.', 'No puedes verme si no sabes qué buscar. El lago es igual.'],
+        ['Those islands ( o ) are too far to walk or leap as words. But you can FIND them.', 'Esas islas ( o ) están demasiado lejos para caminar o saltar como palabras. Pero puedes ENCONTRARLAS.'],
+      ] },
+    ],
+    npcs: [
+      { spr: 'shepherd', name: ['Shepherd', 'Pastor'], say: [
+        ['I lost 27 sheep. Then I typed 27j and found them all at once!', 'Perdí 27 ovejas. ¡Luego escribí 27j y las encontré todas de golpe!'],
+        ['Lost in a sealed pocket? Line 12 begins with a path tile. Just saying.', '¿Atrapado en un rincón sellado? La línea 12 empieza con un camino. Solo digo.'],
+      ] },
+      { spr: 'girl', name: ['Girl', 'Niña'], say: [
+        ['The boar near the barn charges back and forth. Dash past in one go and it can\'t react!', 'El jabalí del granero va y viene. ¡Pasa de un solo salto y no podrá reaccionar!'],
+      ] },
+      { spr: 'ferry', name: ['Ferryman', 'Barquero'], say: [
+        ['My boat sank in the curse. Islands everywhere and nothing to row with.', 'Mi barca se hundió con la maldición. Islas por todas partes y nada con qué remar.'],
+        ['Remember: ; repeats your last find. Island to island to island.', 'Recuerda: ; repite tu última búsqueda. De isla en isla en isla.'],
+      ] },
+    ],
+  },
+  {
+    name: ['Chapter III — Typo Swamp', 'Capítulo III — Pantano Errata'], floor: '#3c5a45', wall: 'reed', roamer: 'mosquito',
+    intro: [
+      ['', '', ['STAGE 3. A swamp where words go to rot. Dr. Clicker\'s mouse-drag smeared every letter, and typos crawl from the mud.',
+        'NIVEL 3. Un pantano donde las palabras se pudren. El arrastre del ratón del Dr. Clicker emborronó cada letra, y las erratas salen del lodo.']],
+      ['hero', '', ['Moving isn\'t enough here. I must learn to EDIT the world... and dodge those mosquitoes.', 'Aquí moverse no basta. Debo aprender a EDITAR el mundo... y esquivar esos mosquitos.']],
+    ],
+    map: MAPS[2],
+    levels: ['x', 'insert', 'lines'],
+    sages: [
+      { spr: 'fairy', name: ['Fairy Xie', 'Hada Xie'], say: [
+        ['Shh! The Typo Toad feeds on extra letters. Take them away and he starves.', '¡Shh! El Sapo Errata se alimenta de letras de más. Quítaselas y morirá de hambre.'],
+        ['From now on you fight with EDITS. Make your text match the goal, and every letter you fix hurts the monster.', 'Desde ahora luchas con EDICIONES. Haz que tu texto coincida con el objetivo, y cada letra que arregles daña al monstruo.'],
+      ] },
+      { spr: 'djinn', name: ['Djinn Insertus', 'Genio Insertus'], say: [
+        ['To speak into the world you must enter INSERT mode...', 'Para hablarle al mundo debes entrar en modo INSERTAR...'],
+        ['...and always, ALWAYS return to NORMAL mode with Esc. Those who forget are lost in the swamp forever.', '...y siempre, SIEMPRE volver al modo NORMAL con Esc. Quien lo olvida se pierde en el pantano para siempre.'],
+      ] },
+      { spr: 'mer', name: ['Mer Ao', 'Sirena Ao'], say: [
+        ['Below lie the mosquito halls. Three corridors cross the only way down.', 'Abajo están los salones de mosquitos. Tres pasillos cruzan el único camino.'],
+        ['Walk step by step and they\'ll bite. Count and dash: 6j and you\'re through before they blink.', 'Camina paso a paso y te picarán. Cuenta y corre: 6j y pasarás antes de que parpadeen.'],
+      ] },
+    ],
+    npcs: [
+      { spr: 'toad', name: ['Frog', 'Rana'], say: [['Ribbit. Thhe... I mean, The. The toad cursed my spelling!', 'Croac. Eel... digo, El. ¡El sapo maldijo mi ortografía!']] },
+      { spr: 'scribe', name: ['Old Scribe', 'Viejo Escriba'], say: [
+        ['See that treasure walled in by reeds? You can\'t walk there... but you could FIND it.', '¿Ves ese tesoro rodeado de juncos? No puedes caminar hasta allí... pero podrías ENCONTRARLO.'],
+        ['To get back out, find a spot you CAN stand on. t stops one step before.', 'Para salir, busca un lugar donde SÍ puedas estar. t se detiene un paso antes.'],
+      ] },
+      { spr: 'kid', name: ['Rowboat Kid', 'Niño del Bote'], say: [['The stones across the swamp go down, not across. Hop, then look below you.', 'Las piedras del pantano bajan, no cruzan. Salta y luego mira debajo de ti.']] },
+      { spr: 'wizard', name: ['Lost Wizard', 'Mago Perdido'], say: [
+        ['There\'s a vault near the exit with two chests. Doors need keys, keys are in the swamp.', 'Hay una cámara cerca de la salida con dos cofres. Las puertas necesitan llaves, y las llaves están en el pantano.'],
+        ['Every second I stay in insert mode I forget a spell. Esc! Esc! Esc!', 'Cada segundo en modo insertar olvido un hechizo. ¡Esc! ¡Esc! ¡Esc!'],
+      ] },
+    ],
+  },
+  {
+    name: ['Chapter IV — Operator Caverns', 'Capítulo IV — Cavernas del Operador'], floor: '#4a4540', wall: 'boulder', roamer: 'bat',
+    intro: [
+      ['', '', ['STAGE 4. Deep under the mountains, the Operator dwarves forge commands from two parts: a VERB and a MOTION.', 'NIVEL 4. Bajo las montañas, los enanos Operadores forjan comandos de dos partes: un VERBO y un MOVIMIENTO.']],
+      ['', '', ['d to delete, c to change, and after it any motion you know. The grammar of vim is the grammar of power.', 'd para borrar, c para cambiar, y después cualquier movimiento que conozcas. La gramática de vim es la gramática del poder.']],
+    ],
+    map: MAPS[3],
+    levels: ['delete', 'motions', 'change'],
+    sages: [
+      { spr: 'dwarf', name: ['Dwarf Dee', 'Enano Dee'], say: [
+        ['Bloat! The spider spins lines nobody needs. We cut them out.', '¡Relleno! La araña teje líneas que nadie necesita. Nosotros las cortamos.'],
+        ['Every monster down here grows stronger each round. Waste keystrokes and it strikes back.', 'Aquí abajo cada monstruo se hace más fuerte en cada ronda. Desperdicia teclas y contraatacará.'],
+      ] },
+      { spr: 'smith', name: ['Smith Dollar', 'Herrero Dólar'], say: [
+        ['A verb alone does nothing, kid. Give it a motion and watch the sparks fly.', 'Un verbo solo no hace nada, chaval. Dale un movimiento y verás saltar chispas.'],
+        ['The dark lake below... jump word to stone, stone to stone, then find the island path.', 'El lago oscuro de abajo... salta de palabra a piedra, de piedra a piedra, y luego busca el camino de islas.'],
+      ] },
+      { spr: 'changeling', name: ['Changeling Cee', 'Cambiante Cee'], say: [
+        ['Why delete and then type, when you can do both in one breath?', '¿Por qué borrar y luego escribir, si puedes hacer ambas cosas de un solo golpe?'],
+        ['The bat tunnels ahead are long, and bats never let you walk past. The stones in them are words: leap with w and b.', 'Los túneles de murciélagos son largos y nunca te dejan pasar caminando. Sus piedras son palabras: salta con w y b.'],
+      ] },
+    ],
+    npcs: [
+      { spr: 'miner', name: ['Miner', 'Minero'], say: [['Those bats fly in straight lines. Dumb bats. Smart cursors jump.', 'Esos murciélagos vuelan en línea recta. Murciélagos tontos. Los cursores listos saltan.']] },
+      { spr: 'hermit', name: ['Hermit', 'Ermitaño'], say: [['I came down here to escape the mouse. Now I delete whole lines with two keys. dd. Beautiful.', 'Bajé aquí para escapar del ratón. Ahora borro líneas enteras con dos teclas. dd. Precioso.']] },
+    ],
+  },
+  {
+    name: ['Chapter V — Dr. Clicker\'s Tower', 'Capítulo V — La Torre del Dr. Clicker'], floor: '#3a3550', wall: 'brick', roamer: 'pointer',
+    intro: [
+      ['', '', ['FINAL STAGE. At the top of the Tower of Objects, DR. CLICKER waits on his throne of mouse pads, finger on the button. His living pointers patrol every floor.',
+        'NIVEL FINAL. En lo alto de la Torre de los Objetos, el DR. CLICKER espera en su trono de alfombrillas, con el dedo en el botón. Sus punteros vivientes patrullan cada piso.']],
+      ['hero', '', ['Five floors, five guardians. Everything I\'ve learned, I\'ll need here. No continues.', 'Cinco pisos, cinco guardianes. Todo lo que aprendí lo necesitaré aquí. Sin continues.']],
+    ],
+    map: MAPS[4],
+    levels: ['inside', 'replace', 'yank', 'dot', 'boss'],
+    sages: [
+      { spr: 'witch', name: ['Witch Inna', 'Bruja Inna'], say: [['Words, quotes, parentheses... everything is an object, little cursor. Strike from the inside.', 'Palabras, comillas, paréntesis... todo es un objeto, pequeño cursor. Ataca desde dentro.']] },
+      { spr: 'captain', name: ['Captain Tilde', 'Capitán Tilde'], say: [['SHOUTING or whispering, I decide! And I fix a letter without ever entering insert mode.', '¡GRITAR o susurrar, yo decido! Y arreglo una letra sin entrar nunca en modo insertar.']] },
+      { spr: 'teacher', name: ['Teacher Yank', 'Maestra Yank'], say: [['Never type the same thing twice. Copy it. Vim calls it yanking. Don\'t ask why.', 'Nunca escribas lo mismo dos veces. Cópialo. Vim lo llama "yank". No preguntes por qué.']] },
+      { spr: 'monk', name: ['Monk Dot', 'Monje Punto'], say: [['The wise one repeats... the wise one repeats... the wise one presses dot.', 'El sabio repite... el sabio repite... el sabio pulsa punto.']] },
+      { spr: 'king', name: ['Ghost of King Bram', 'Fantasma del Rey Bram'], say: [
+        ['I ruled Textoria before the curse. Dr. Clicker waits beyond this door.', 'Goberné Textoria antes de la maldición. El Dr. Clicker espera tras esta puerta.'],
+        ['He will throw every trick at you, round after round. You have every spell you need. Use them all, PROMPT.', 'Te lanzará todos sus trucos, ronda tras ronda. Tienes todos los hechizos que necesitas. Úsalos todos, PROMPT.'],
+      ] },
+    ],
+    npcs: [],
+  },
+];
+
+const MONSTERS: Record<SpellId, Monster> = {
+  hjkl: { spr: 'rat', name: ['Arrow Rat', 'Rata Flecha'], taunt: ['Squeak! Arrow keys forever! You\'ll never catch my gems!', '¡Iiic! ¡Flechas para siempre! ¡Nunca atraparás mis gemas!'] },
+  words: { spr: 'bat', name: ['Word Bat', 'Murciélago Verbal'], taunt: ['Skreee! I flutter between words faster than you can blink!', '¡Skriii! ¡Revoloteo entre palabras más rápido de lo que parpadeas!'] },
+  edges: { spr: 'snail', name: ['Margin Snail', 'Caracol Margen'], taunt: ['Slooow... I hide my treasures at the ends of lines...', 'Leeento... escondo mis tesoros al final de las líneas...'] },
+  counts: { spr: 'boar', name: ['Tally Boar', 'Jabalí Contador'], taunt: ['GRUNT. One step, two steps, ten steps. You\'ll be exhausted before you reach me!', 'GRUÑ. Un paso, dos pasos, diez pasos. ¡Estarás agotado antes de alcanzarme!'] },
+  find: { spr: 'serpent', name: ['Seeker Serpent', 'Serpiente Buscadora'], taunt: ['Sssss... find my starssss if you can...', 'Sssss... encuentra mis estrellassss si puedessss...'] },
+  x: { spr: 'toad', name: ['Typo Toad', 'Sapo Errata'], taunt: ['Ribbbit! I put extra letters everywheree!', '¡Croooac! ¡Pongo letras de más por todass partes!'] },
+  insert: { spr: 'goblin', name: ['Gap Goblin', 'Duende Hueco'], taunt: ['Hehehe! I stole letters from your sentences!', '¡Jejeje! ¡Robé letras de tus frases!'] },
+  lines: { spr: 'lizard', name: ['Line Lizard', 'Lagarto Lineal'], taunt: ['Semicolons? Comments? I ate them all!', '¿Puntos y coma? ¿Comentarios? ¡Me los comí todos!'] },
+  delete: { spr: 'spider', name: ['Bloat Spider', 'Araña Relleno'], taunt: ['More lines! More words! Very very very many words!', '¡Más líneas! ¡Más palabras! ¡Muchas muchas muchas palabras!'] },
+  motions: { spr: 'scorpion', name: ['Debug Scorpion', 'Escorpión Depurador'], taunt: ['console.log everywhere! Leave my TODOs alone!', '¡console.log por todas partes! ¡Deja mis TODOs en paz!'] },
+  change: { spr: 'crab', name: ['Mimic Crab', 'Cangrejo Mímico'], taunt: ['Click clack! I swapped your words for cats and dogs!', '¡Clic clac! ¡Cambié tus palabras por gatos y perros!'] },
+  inside: { spr: 'ghost', name: ['Bracket Ghost', 'Fantasma Corchete'], taunt: ['Boooo... I live inside the quotes and parentheses...', 'Buuuu... vivo dentro de las comillas y los paréntesis...'] },
+  replace: { spr: 'wolf', name: ['Caps Wolf', 'Lobo Mayúsculo'], taunt: ['AWOOO! i Mess Up yOuR cApItAlS!', '¡AUUU! ¡mE cOmO tUs MaYúScUlAs!'] },
+  yank: { spr: 'cat', name: ['Copy Cat', 'Gato Copión'], taunt: ['Meow. Hip... hooray? You\'re missing a hip.', 'Miau. ¿Hip... hurra? Te falta un hip.'] },
+  dot: { spr: 'owl', name: ['Echo Owl', 'Búho Eco'], taunt: ['Foo! foo! foo! foo! Can you change them all?', '¡Foo! ¡foo! ¡foo! ¡foo! ¿Puedes cambiarlos todos?'] },
+  boss: { spr: 'clicker', name: ['DR. CLICKER', 'DR. CLICKER'], taunt: [
+    'MWAHAHA! So the little blinking cursor learned to type. I mangled every line in my tower. You\'ll never fix them all! CLICK CLICK CLICK!',
+    '¡MUAJAJA! Así que el cursorcito aprendió a escribir. Destrocé cada línea de mi torre. ¡Nunca las arreglarás todas! ¡CLIC CLIC CLIC!'] },
+};
+
+const ENDING: Line[] = [
+  ['clicker', '', ['DR. CLICKER shatters into a thousand pixels. His mouse pointer flickers... and fades. GAME OVER, doctor.', 'El DR. CLICKER estalla en mil píxeles. Su puntero parpadea... y se apaga. GAME OVER, doctor.']],
+  ['', '', ['Across Textoria, hands return to the home row. The words heal. The swamp clears. The fields can be counted again.', 'Por toda Textoria, las manos vuelven a la fila guía. Las palabras sanan. El pantano se aclara. Los campos pueden contarse de nuevo.']],
+  ['king', ['King Bram', 'Rey Bram'], ['THANK YOU, PROMPT! But remember: a vimmer\'s quest never truly ends.', '¡GRACIAS, PROMPT! Pero recuerda: la aventura de un vimmer nunca termina del todo.']],
+  ['', '', ['THE END. Replay any battle with :train to earn ★★★ on every one. Then try the Vimmer level.', 'FIN. Repite cualquier batalla con :train y consigue ★★★ en todas. Luego prueba el nivel Vimmer.']],
+];
+
+export { CHAPTERS, MONSTERS, ENDING };
