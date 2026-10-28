@@ -1,7 +1,7 @@
 // bun run test — every level must be solvable by its solution within par, plus engine spot checks
 import assert from 'node:assert';
 import { Vim, Run, LEVELS, tokens, needs, locked } from '../src/core/engine.ts';
-import { World, makeRound, rng, upTo, GEN, solveSteps, ROUNDS, MOVE_SPELLS } from '../src/core/game.ts';
+import { World, replayBonus, makeRound, rng, upTo, GEN, solveSteps, ROUNDS, MOVE_SPELLS } from '../src/core/game.ts';
 import { CHAPTERS, MONSTERS } from '../src/core/story.ts';
 
 for (const lv of LEVELS) {
@@ -22,6 +22,9 @@ assert.equal(t('a\nb\nc', 'jddp'), 'a\nc\nb');
 assert.equal(t('a-b-c-d', 't-;;D'), 'a-b-');
 assert.equal(t('one two three', 'wdaw'), 'one three');
 assert.equal(t('l1\nl2\nl3', 'jdG'), 'l1');
+assert.equal(t('a (b [c] d) e', 'f(%x'), 'a (b [c] d e', '% jumps to the matching bracket');
+assert.equal(t('f(\nx)', '%x'), 'f(\nx', '% matches across lines');
+assert.equal(t('go(a)(b) x', 'f)lda('), 'go(a) x');
 console.log(`ok: ${LEVELS.length} levels`);
 
 // gating: every handcrafted solution uses only spells learned so far
@@ -52,7 +55,17 @@ assert.equal(new World(CHAPTERS[0]).key('i', upTo('hjkl')).locked, 'battle', 'i 
   w.roamers = [foe];
   assert.equal(w.key('l', upTo('hjkl')).foe, foe, 'touching a roamer reports it');
 }
-console.log('ok: generated rounds');
+{ // treasure ledger: chests are numbered in reading order, an opened chest stays as _ and gives nothing again
+  const w = new World({ map: ['######', '#@$ $#', '######'] }), L = upTo('hjkl');
+  assert.deepEqual(w.chests, [{ r: 1, c: 2 }, { r: 1, c: 4 }]);
+  assert.deepEqual(w.key('l', L).picked, ['$']);
+  assert.equal(w.at(1, 2), '_', 'opened chest stays on the map');
+  w.key('h', L);
+  const again = w.key('l', L);
+  assert(again.looted && !again.picked.length, 'opened chest is empty');
+}
+assert.deepEqual([...Array(10).keys()].map(replayBonus), [3, 2, 2, 2, 1, 1, 1, 1, 1, 0], '★★★ replay bonus drops 20% a time');
+console.log('ok: generated rounds, treasure ledger');
 
 // story maps: equal widths, every level has sage+monster, monsters gate the path in order
 const seen = [];
@@ -60,27 +73,30 @@ CHAPTERS.forEach((ch, ci) => {
   const m = ch.map, W = m[0].length;
   m.forEach((row, r) => assert.equal(row.length, W, `${ch.name} row ${r} width`));
   assert.equal(m.join('').split('&').length - 1, ch.npcs.length, `${ch.name} npc count`);
+  assert.equal(m.join('').split('L').length - 1, ch.lore.length, `${ch.name} lore keeper count`);
   assert.equal(ch.sages.length, ch.levels.length, `${ch.name} sage count`);
   assert(m.join('').split('+').length >= m.join('').split('|').length, `${ch.name}: more doors than keys`);
   ch.levels.forEach(id => { assert(MONSTERS[id], `${id} monster missing`); seen.push(id); });
   const prior = CHAPTERS.slice(0, ci).flatMap(c => c.levels);
   // all cells the hero can stand on, using the real movement rules (roamers off, doors open)
   // explore with the real movement rules (roamers off, doors open); gone = every item already collected
-  const explore = (learnedN, beaten, gone, sources, danger) => {
+  // only: use exactly these moves instead of every learned one
+  const explore = (learnedN, beaten, gone, sources, danger, only) => {
     const w = new World(ch);
     w.roamers = [];
     const learned = new Set(['hjkl', ...prior, ...ch.levels.slice(0, learnedN)]);
-    w.lines.forEach((row, r) => w.lines[r] = row.replace(/[A-E|$%+]/g, t => ('$%+'.includes(t) ? (gone ? ' ' : t) : t === '|' || t.charCodeAt(0) - 65 < beaten ? ' ' : t)));
+    w.lines.forEach((row, r) => w.lines[r] = row.replace(/[A-E|$♥+]/g, t => ('$♥+'.includes(t) ? (gone ? ' ' : t) : t === '|' || t.charCodeAt(0) - 65 < beaten ? ' ' : t)));
     const base = [...w.lines];
     const moves = ['h', 'j', 'k', 'l'];
     if (learned.has('words')) moves.push('w', 'b', 'e');
     if (learned.has('edges')) moves.push('0', '^', '$');
     if (learned.has('counts')) { moves.push('gg', 'G'); for (let n = 2; n <= m.length; n++) moves.push(n + 'G'); }
+    if (learned.has('around')) moves.push('%');
     if (learned.has('find')) for (const t of new Set(base.join('').replace(/ /g, ''))) for (const f of 'fFtT') moves.push(f + t);
     const cells = new Set(sources.map(p => p + '')), q = [...sources], back = new Map();
     while (q.length) {
       const [r, c] = q.pop();
-      for (const mv of moves) {
+      for (const mv of only || moves) {
         w.nav.lines = [...base]; w.place(r, c);
         for (const k of tokens(mv)) w.key(k, learned);
         const to = [w.r, w.c] + '';
@@ -123,10 +139,17 @@ CHAPTERS.forEach((ch, ci) => {
   });
   ch.levels.forEach((_, i) => assert(touches(explore(i + 1, i, false, [s0], danger).cells, String.fromCharCode(65 + i)), `${ch.name}: monster ${String.fromCharCode(65 + i)} only reachable by walking through a patrolled tunnel`));
   if (at('>')) assert(explore(ch.levels.length, ch.levels.length, false, [s0], danger).cells.has(at('>') + ''), `${ch.name}: exit only reachable through a patrolled tunnel`);
+  // lake mazes: reaching the target past the lake needs each of these keys (w and e both hop one stone)
+  const lake = { 0: ['B', ['j', 'k', 'b', 'we']], 5: ['B', ['j', 'b', 'we']], 6: ['b', ['k', 'b', 'we']] }[ci];
+  if (lake) for (const ks of lake[1]) {
+    const only = [...'hjklwbe'].filter(k => !ks.includes(k));
+    assert(!touches(explore(2, 1, false, [s0], null, only).cells, lake[0]), `${ch.name}: lake crossable without ${ks}`);
+  }
   const all = reach(ch.levels.length, ch.levels.length);
   if (at('>')) assert(all.has(at('>') + ''), `${ch.name}: exit unreachable`);
   m.forEach((row, r) => [...row].forEach((t, c) => {
-    if ('$%+'.includes(t)) assert(all.has([r, c] + ''), `${ch.name}: item ${t} at ${r},${c} unreachable`);
+    if ('$♥+'.includes(t)) assert(all.has([r, c] + ''), `${ch.name}: item ${t} at ${r},${c} unreachable`);
+    if (t === 'L') assert([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dr, dc]) => all.has([r + dr, c + dc] + '')), `${ch.name}: lore keeper at ${r},${c} unreachable`);
   }));
 });
 assert.deepEqual(seen, LEVELS.map(l => l.id), 'chapters must cover every level in order');
@@ -135,7 +158,7 @@ console.log(`ok: ${CHAPTERS.length} chapters`);
 // sprites: every sprite the story uses exists and fits 16x16
 import { grid, groundTiles, NAMES } from '../src/core/sprites.ts';
 import { UI, LESSONS_ES, fingers } from '../src/ui/i18n.js';
-const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'heart', 'key', 'door', 'portal', 'house', 'boulder'];
+const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr), ...ch.lore.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'chestOpen', 'heart', 'key', 'door', 'portal', 'house', 'boulder'];
 for (const ch of CHAPTERS) assert(Object.values(groundTiles(ch.ground)).every(u => u.startsWith('data:image/svg+xml') && !u.includes('undefined')), `${ch.name} ground`);
 for (const n of used) assert(NAMES.includes(n), `sprite ${n} missing`);
 for (const n of NAMES) { const g = grid(n); assert(g.length <= 16 && g.every(r => r.length <= 16), `sprite ${n} bigger than 16x16`); }
@@ -170,3 +193,32 @@ for (const lv of LEVELS) for (let seed = 1; seed <= 4; seed++) {
 }
 useText(null);
 console.log('ok: downloaded text rounds');
+
+// festival villages: one per chapter, no monsters, every villager/chest/exit reachable with h j k l alone
+import { VILLAGES, ITEMS } from '../src/core/story.ts';
+import { outfit } from '../src/core/sprites.ts';
+assert.equal(VILLAGES.length, CHAPTERS.length);
+VILLAGES.forEach((v, i) => {
+  const m = v.map, w = new World(v), hjkl = new Set(['hjkl']);
+  m.forEach((row, r) => assert.equal(row.length, m[0].length, `${v.name} row ${r} width`));
+  assert.equal(m.join('').split('&').length - 1, v.npcs.length, `${v.name} npc count`);
+  assert(!/[A-EMW]/.test(m.join('')) && !v.levels.length && !w.roamers.length, `${v.name} has monsters`);
+  assert.equal(m.join('').includes('>'), i < VILLAGES.length - 1, `${v.name}: exit only before the last chapter`);
+  const seen = new Set([w.r + ',' + w.c]), q = [[w.r, w.c]], near = new Set();
+  while (q.length) {
+    const [r, c] = q.pop();
+    for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      near.add(r + dr + ',' + (c + dc));
+      if (w.walkable(r + dr, c + dc) && !seen.has(r + dr + ',' + (c + dc))) { seen.add(r + dr + ',' + (c + dc)); q.push([r + dr, c + dc]); }
+    }
+  }
+  m.forEach((row, r) => [...row].forEach((t, c) => { if ('&$>'.includes(t)) assert(near.has(r + ',' + c), `${v.name}: ${t} at ${r},${c} unreachable`); }));
+  [v.wall, ...v.npcs.map(p => p.spr), 'fountain', 'balloons'].forEach(n => assert(NAMES.includes(n), `sprite ${n} missing`));
+});
+for (const id in ITEMS) assert(NAMES.includes(id), `costume sprite ${id} missing`);
+assert(outfit(['partyhat', 'flamesword', 'shell']).startsWith('data:image/svg+xml'));
+console.log(`ok: ${VILLAGES.length} villages, ${Object.keys(ITEMS).length} costumes`);
+
+// undo is innate: usable from the first battle on
+assert.equal(locked(new Vim('ab'), 'u', new Set(['hjkl'])), null, 'u must be unlocked from the start');
+{ const v = new Vim('ab'); v.key('x'); v.key('u'); assert.equal(v.text, 'ab', 'u undoes'); }

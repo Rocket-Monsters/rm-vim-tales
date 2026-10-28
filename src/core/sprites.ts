@@ -118,6 +118,10 @@ const ART: Record<string, string[]> = {
     '.44444499444444', '.44ffffffffff44', '.44f4ff4ff4ff44', '..4ffffffffff4', '..44f4ff4ff444', '...4444444444',
     '....99....99',
   ],
+  mummy: [
+    '', '.....777777', '....76777767', '...7777777777', '...7887667887', '...7777777777', '....67777766', '...7777777777',
+    '..776677776677', '..7.777777.77', '..7.776677.67', '....7777777', '....7767.7767', '....777..777', '....666..666',
+  ],
   mosquito: [
     '', '......0..0', '.......55', '......5885', '.......55', '..ccc..55..ccc', '.c777c5555c777c', '.c7777c55c7777c',
     '..c777c55c777c', '...ccc5885ccc', '......5885', '.....5.88.5', '....5..88..5', '...5...55...5',
@@ -157,6 +161,10 @@ const ART: Record<string, string[]> = {
     '', '', '', '', '...4444444444', '..499999999994', '..4aaaaaaaaaa4', '..444444444444', '..aaaaa00aaaaa',
     '..44444aa44444', '..444444444444', '..4a44444444a4', '..aaaaaaaaaaaa',
   ],
+  chestOpen: [
+    '', '...4444444444', '..499999999994', '..444444444444', '..400000000004', '..400000000004', '..400000000004',
+    '..aaaaaaaaaaaa', '..444444444444', '..444444444444', '..4a44444444a4', '..aaaaaaaaaaaa',
+  ],
   heart: [
     '', '', '', '...8888..8888', '..877888888888', '..878888888888', '..888888888888', '...8888888888', '....88888888',
     '.....888888', '......8888', '.......88',
@@ -177,6 +185,32 @@ const ART: Record<string, string[]> = {
     'uuuuuuuuuuuuuuuu', '..yyyyyyyyyyyz', '..yccyyyyklkyz', '..y1cyyyyklkyz', '..yyyyyyyklkyz', '..yyyyyyykmkyz',
     '..zzzzzzzklkzz', '..nnnnnnnnnnnn',
   ],
+  // ---------- village ----------
+  bush: [
+    '', '', '....iiiiiiii', '..iijjiiiiiiii', '.iijjiieiiiiaii', '.iiiiiiiiiiiiii', 'iieiiiiijjiiiiii', 'iiiiiiaiiiiieiii',
+    'iiijjiiiiiiiiiii', 'hiiiiieiiiiaiiih', '.hiiiiiiiiiiiih', '..hhiiiiiiiihh', '....hhhhhhhh',
+  ],
+  fountain: [
+    '', '.......cc', '......c77c', '.......cc', '.......ss', '......cccc', '.....c7cc7c', '..rrrrrrrrrrrr', '.rssssssssssssr',
+    '.rccc7cccc7cccr', '.rcc7ccccc7cccr', '.rssssssssssssr', '..rrrrrrrrrrrr', '...oooooooooo',
+  ],
+  balloons: [
+    '..88.......cc', '.8788.....c7cc', '.8888..aa.cccc', '..88..a7aa.cc', '...0..aaaa.0', '....0..aa.0', '.....0.0.0',
+    '......000', '.......0', '.......0', '......444', '.....44444',
+  ],
+  // ---------- costumes: drawn over the hero's 16x16 frame (hats on the screen's top edge, sword in the right hand, shield in the left) ----------
+  partyhat: ['.......a', '......e8e', '.....8e8e8'],
+  wizardhat: ['.......d', '......dad', '....dddddddd'],
+  goldcrown: ['....a..aa..a', '....aaaaaaaa', '....a8acca8a'],
+  woodsword: ['', '', '', '..............q', '..............q', '..............q', '..............q', '..............q',
+    '..............q', '..............q', '.............444', '..............4', '..............4'],
+  ironsword: ['', '', '..............7', '..............6', '..............6', '..............6', '..............6', '..............6',
+    '..............6', '..............6', '.............555', '..............4', '..............a'],
+  flamesword: ['', '', '..............a', '..............9', '..............8', '..............9', '..............8', '..............9',
+    '..............8', '..............9', '.............222', '..............2', '..............a'],
+  woodshield: ['', '', '', '', '', '', '', '', '.444', '4ppp4', '4pqp4', '4ppp4', '.4p4', '..4'],
+  shell: ['', '', '', '', '', '', '', '', '.bbb', 'b3b3b', '3b3b3', 'b3b3b', '.333'],
+  starshield: ['', '', '', '', '', '', '', '', 'ccccc', 'c7a7c', 'caaac', 'c7a7c', '.ccc', '..c'],
 };
 
 // characters built from the people templates: [template, slot colors as "H R T K B"]
@@ -190,9 +224,43 @@ const CAST: Record<string, [string, string]> = {
   girl: ['long', '9 8 7 f'], ferry: ['hat', '5 4 5 f'], scribe: ['folk', '6 2 1 f'], kid: ['folk', '4 c 4 f'],
   miner: ['helm', 'a 5 4 f 5'], hermit: ['hood', '5 d 5 f'], dwarf: ['helm', '6 4 5 f 9'], captain: ['folk', '8 1 8 f'],
   teacher: ['long', '5 3 6 f'], nine: ['folk', 'a 9 4 f'],
+  keeper: ['hood', '2 6 d f'], bard: ['hat', 'e 2 9 f'], ayla: ['long', 'd 1 a f'], explorer: ['hat', '9 4 5 f'],
+  mason: ['folk', '6 5 4 f'], sailor: ['folk', '1 c 7 f'],
+  tailor: ['long', 'e 2 a f'], sensei: ['hood', '7 8 0 f'], jester: ['sage', 'e a 8 f f'],
+};
+
+// gate bosses: their species' art in new colors ("from:to" palette swaps) plus marks of their own
+// ([row, col, pixels], '.' leaves a pixel alone), so a boss never looks like the roamers of its kind
+const BOSS: Record<string, [string, string, [number, number, string][]]> = {
+  ratBoss: ['rat', '5:4 6:9 e:8', [[1, 2, 'a.a.a'], [2, 2, 'aaaaa'], [12, 10, '8'], [13, 9, '888']]],
+  batBoss: ['bat', '2:1 8:a', [[0, 6, 'a..a'], [1, 6, 'a..a'], [2, 0, 'a'], [2, 15, 'a'], [9, 7, '77']]],
+  snailBoss: ['snail', '4:1 9:c f:b 0:8', [[2, 3, 'a.a.a.a'], [3, 3, '.a.a.a']]],
+  boarBoss: ['boar', '4:8 5:0 7:a', [[8, 7, '6.6.6.6'], [9, 7, '6.6.6.6'], [10, 7, '6.6.6.6']]],
+  serpentBoss: ['serpent', 'b:9 3:4', [[2, 7, '666'], [3, 7, '6c6'], [4, 7, '666'], [5, 10, '6'], [6, 11, '6']]],
+  toadBoss: ['toad', 'b:3 f:a', [[2, 6, 'a..a'], [3, 6, 'aaaa'], [4, 6, 'a8aa'], [6, 3, 'e'], [8, 12, 'e'], [7, 5, 'e']]],
+  goblinBoss: ['goblin', '8:b 2:1', [[4, 4, '000000'], [4, 10, '00'], [5, 10, '00'], [3, 0, 'a'], [3, 15, 'a']]],
+  lizardBoss: ['lizard', '9:c 4:1', [[7, 1, 'a.a.a.a.a'], [4, 11, 'aaa']]],
+  spiderBoss: ['spider', '5:2 8:a', [[8, 7, '88'], [9, 6, '8888'], [10, 7, '88'], [5, 6, 'a...a']]],
+  scorpionBoss: ['scorpion', '9:8 8:a', [[1, 13, 'aa'], [2, 12, 'a.aa'], [7, 9, 'aaaa']]],
+  crabBoss: ['crab', '8:9', [[0, 6, '0000'], [1, 6, '0000'], [2, 6, '0880'], [3, 5, '000000']]],
+  ghostBoss: ['ghost', '7:d d:2 0:a', [[7, 3, '11'], [8, 3, '1'], [9, 3, '1'], [10, 3, '11'], [7, 11, '11'], [8, 12, '1'], [9, 12, '1'], [10, 11, '11']]],
+  wolfBoss: ['wolf', '5:1 6:c', [[2, 5, '888888'], [3, 4, '88888888'], [3, 12, '8'], [12, 6, 'aaaa']]],
+  catBoss: ['cat', '9:5 e:8', [[7, 3, '000000000'], [12, 4, 'aaaaaa']]],
+  // tower guardians: Dr. Clicker's army
+  swarmBoss: ['pointer', '7:8 0:2', [[0, 8, 'a.a.a'], [1, 8, 'aaaaa'], [9, 12, '8'], [10, 13, '8']]],
+  smearBoss: ['ghost', '7:b d:3 0:0', [[14, 3, 'b'], [15, 3, 'b'], [14, 9, 'b'], [15, 9, 'b'], [2, 6, '.7']]],
+  cloneBoss: ['clicker', '6:5 7:6 e:c c:8', [[1, 6, '....'], [12, 6, '7..7']]],
+  owlBoss: ['owl', '4:d f:7 7:a', [[0, 3, '0000000000'], [1, 6, '0000'], [1, 12, 'a'], [2, 12, 'a']]],
 };
 
 function grid(name: string): string[] {
+  const boss = BOSS[name];
+  if (boss) {
+    const [base, swaps, marks] = boss, sw = Object.fromEntries(swaps.split(' ').map(p => p.split(':')));
+    const rows = Array.from({ length: 16 }, (_, y) => [...(ART[base][y] ?? '').padEnd(16, '.')].map(ch => sw[ch] ?? ch));
+    for (const [y, x, px] of marks) [...px].forEach((ch, i) => { if (ch !== '.') rows[y][x + i] = ch; });
+    return rows.map(r => r.join('').replace(/\.+$/, ''));
+  }
   const cast = CAST[name];
   const rows = ART[cast ? cast[0] : name];
   if (!rows) throw new Error(`no sprite ${name}`);
@@ -219,11 +287,12 @@ const paint = (rows: string[], color: (ch: string) => string) => rows.map(r => [
 const mix = (a: string, b: string, t: number) =>
   '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('');
 // map scenery is drawn pre-shaded; characters, monsters and items get a dark outline, lit from the top left
-const SCENERY = new Set(['pine', 'oak', 'reed', 'boulder', 'brick', 'house', 'door', 'portal']);
+const SCENERY = new Set(['pine', 'oak', 'reed', 'boulder', 'brick', 'house', 'door', 'portal', 'bush']);
+const OUTLINE = '#1a1220';
 function pixels(name: string): string[][] {
   const g = grid(name), on = (x: number, y: number) => (g[y]?.[x] ?? '.') !== '.', fx = !SCENERY.has(name);
   return Array.from({ length: 16 }, (_, y) => Array.from({ length: 16 }, (_, x) => {
-    if (!on(x, y)) return fx && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) ? '#1a1220' : '';
+    if (!on(x, y)) return fx && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1)) ? OUTLINE : '';
     const c = PAL[g[y][x]];
     if (!fx) return c;
     return !on(x, y - 1) || !on(x - 1, y) ? mix(c, '#ffffff', .28) : !on(x, y + 1) || !on(x + 1, y) ? mix(c, '#000000', .3) : c;
@@ -233,6 +302,17 @@ const cache = new Map<string, string>();
 function sprite(name: string): string {
   let url = cache.get(name);
   if (!url) cache.set(name, (url = svg(pixels(name))));
+  return url;
+}
+// the hero wearing costumes: item pixels over the hero's; an item's outline only lands on empty space
+function outfit(items: string[]): string {
+  const key = ['hero', ...items].join('+');
+  let url = cache.get(key);
+  if (!url) {
+    const px = pixels('hero');
+    for (const it of items) pixels(it).forEach((row, y) => row.forEach((c, x) => { if (c && (c !== OUTLINE || !px[y][x])) px[y][x] = c; }));
+    cache.set(key, (url = svg(px)));
+  }
   return url;
 }
 
@@ -311,6 +391,6 @@ function groundTiles(g: Ground): Record<string, string> {
   return out;
 }
 const TEMPLATES = new Set(Object.values(CAST).map(c => c[0]));
-const NAMES = [...Object.keys(ART).filter(n => !TEMPLATES.has(n)), ...Object.keys(CAST)];
+const NAMES = [...Object.keys(ART).filter(n => !TEMPLATES.has(n)), ...Object.keys(CAST), ...Object.keys(BOSS)];
 
-export { sprite, grid, pixels, groundTiles, PAL, NAMES };
+export { sprite, outfit, grid, pixels, groundTiles, PAL, NAMES };

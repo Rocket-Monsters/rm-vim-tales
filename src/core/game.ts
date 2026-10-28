@@ -5,9 +5,18 @@ type Learned = ReadonlySet<string>;
 const LV = Object.fromEntries(LEVELS.map(l => [l.id, l])) as Record<SpellId, Lesson>;
 const MOVE_SPELLS: SpellId[] = ['hjkl', 'words', 'edges', 'counts', 'find'];
 const ROUNDS = 5, BOSS_ROUNDS = 8;
+// recap guardians (and Dr. Clicker's phases, in this order) draw each round from one group of earlier spells
+const RECAP: Record<string, SpellId[]> = {
+  recap1: ['hjkl', 'words', 'edges', 'counts', 'find'],
+  recap2: ['x', 'insert', 'lines', 'delete', 'motions', 'change'],
+  recap3: ['inside', 'around', 'replace', 'yank', 'dot'],
+};
+const PHASES = Object.values(RECAP);
 // fights against roaming monsters: how many rounds (each a random learned spell) and how much of the usual clock
 const FIGHTS = { ambush: { rounds: 1, time: 1 }, swarm: { rounds: 3, time: 1 }, blitz: { rounds: 1, time: 0.5 } } as const;
 // seconds on the clock for a round: a base plus a few seconds per keystroke of par
+// gold for a ★★★ :train replay: 3g (a third of a chest), 20% less for each one before it
+const replayBonus = (n: number) => Math.round(3 * 0.8 ** n);
 const roundSecs = (par: number, perKey: number, time = 1) => Math.round((10 + par * perKey) * time);
 // every spell learned once you've mastered `id` (hjkl is innate)
 const upTo = (id: SpellId) => new Set(['hjkl', ...LEVELS.slice(0, LEVELS.findIndex(l => l.id === id) + 1).map(l => l.id)]);
@@ -15,14 +24,15 @@ const upTo = (id: SpellId) => new Set(['hjkl', ...LEVELS.slice(0, LEVELS.findInd
 // ---------- overworld ----------
 // The map is a read-only vim buffer. Grass, path and water are "blank" so w/b/e leap over them;
 // stepping-stones (=) are words. Walking (hjkl) goes tile by tile, every other motion is a leap.
-const WALK = ' .o=$%+>';
-const mapCls = (ch: string | undefined) => (ch !== undefined && ' .o~'.includes(ch) ? 0 : ch === '=' ? 1 : 2);
+// _ is an opened chest: walkable, blank like grass. Bracket pillars ( ) [ ] { } are walkable words that % leaps between
+const WALK = ' .o=$♥+>_()[]{}';
+const mapCls = (ch: string | undefined) => (ch !== undefined && ' .o~_'.includes(ch) ? 0 : ch === '=' ? 1 : 2);
 const DIRS: Record<string, [number, number]> = { h: [0, -1], j: [1, 0], k: [-1, 0], l: [0, 1] };
 
 // one key on the map → what happened
 export interface MapEvent {
   picked: string[]; wait?: boolean; locked?: SpellId | 'unknown' | 'battle';
-  bump?: Pos & { t: string | undefined }; blocked?: boolean; foe?: Roamer; exit?: boolean; face?: number;
+  bump?: Pos & { t: string | undefined }; blocked?: boolean; foe?: Roamer; exit?: boolean; face?: number; looted?: boolean;
 }
 export interface Roamer extends Pos { dr: number; dc: number }
 
@@ -31,15 +41,20 @@ class World {
   start!: Pos;
   nav: Vim;
   npcAt: Record<string, number> = {};
+  loreAt: Record<string, number> = {};
+  // every $ of the chapter map in reading order: chest n has the save id "<chapter>.$<n+1>"
+  chests: Pos[] = [];
   constructor(chapter: { map: string[] }, saved?: string[] | null) {
     chapter.map.forEach((row, r) => [...row].forEach((t, c) => {
       if (t === 'M' || t === 'W') this.roamers.push({ r, c, dr: t === 'W' ? 1 : 0, dc: t === 'M' ? 1 : 0 });
       if (t === '@') this.start = { r, c };
+      if (t === '$') this.chests.push({ r, c });
     }));
     const lines = saved || chapter.map.map(row => row.replace(/[MW@]/g, ' '));
     this.nav = new Vim(lines.join('\n'), true, mapCls);
     let n = 0;
-    chapter.map.forEach((row, r) => [...row].forEach((t, c) => { if (t === '&') this.npcAt[r + ',' + c] = n++; }));
+    let l = 0;
+    chapter.map.forEach((row, r) => [...row].forEach((t, c) => { if (t === '&') this.npcAt[r + ',' + c] = n++; if (t === 'L') this.loreAt[r + ',' + c] = l++; }));
     this.place(this.start.r, this.start.c);
   }
   get lines() { return this.nav.lines; }
@@ -55,8 +70,9 @@ class World {
     const v = this.nav, cmd = v.pending + k, ev: MapEvent = { picked: [] };
     if (k === '<Esc>') { v.pending = ''; return ev; }
     const need = needs(cmd);
+    const onMap = (s: SpellId) => MOVE_SPELLS.includes(s) || (s === 'around' && k === '%');
     const lock = !need.length && !/^[1-9]\d*$/.test(cmd) ? 'unknown'
-      : need.find(s => !MOVE_SPELLS.includes(s)) || cmd === 'i' ? 'battle' : need.find(s => !learned.has(s));
+      : need.find(s => !onMap(s)) || cmd === 'i' || cmd === 'u' ? 'battle' : need.find(s => !learned.has(s));
     if (lock) { v.pending = ''; ev.locked = lock; return ev; }
     const walk = cmd.match(/^([1-9]\d*)?([hjkl])$/);
     if (walk) {
@@ -84,7 +100,8 @@ class World {
   }
   step(ev: MapEvent) {
     const t = this.at(this.r, this.c)!;
-    if ('$%+'.includes(t)) { this.set(this.r, this.c, ' '); ev.picked.push(t); }
+    if ('$♥+'.includes(t)) { this.set(this.r, this.c, t === '$' ? '_' : ' '); ev.picked.push(t); }
+    if (t === '_') ev.looted = true;
     if (t === '>') ev.exit = true;
     ev.foe ||= this.roamers.find(m => m.r === this.r && m.c === this.c);
   }
@@ -215,6 +232,24 @@ const GEN: Record<string, (R: Rand, d: number) => Generated> = {
         return o;
       }).join(' ');
     });
+    return { start, goal, steps: steps.reverse() };
+  },
+  // each line gets one extra thing to cut whole: a doubled word (daw), a stray (group) (da() or [index] (da[)
+  around(R, d) {
+    const start: string[] = [], goal: string[] = [], steps: Step[] = [];
+    for (let r = 0; r < 2 + Math.ceil(d / 2); r++) {
+      const t = R();
+      if (t < 0.4) {
+        const line = pick(R, TEXT), ws = wordStarts(line), w = pick(R, ws), word = line.slice(w).split(' ')[0];
+        goal.push(line); start.push(line.slice(0, w) + word + ' ' + line.slice(w));
+        steps.push({ r, c: w, keys: 'daw' });
+      } else {
+        const [tpl, obj] = t < 0.7 ? [pick(R, ['open(chest)', 'heal(hero)', 'save(game)', 'attack(goblin)']), '('] : [pick(R, ['items[0]', 'map[row]', 'gems[3]', 'keys[i]']), '['];
+        const junk = obj === '(' ? `(${pick(R, ARGS)})` : `[${pick(R, ['9', 'old', 'n - 1', 'tmp'])}]`;
+        goal.push(tpl); start.push(tpl + junk);
+        steps.push({ r, c: tpl.length, keys: `da${obj}` });
+      }
+    }
     return { start, goal, steps: steps.reverse() };
   },
   inside(R, d) {
@@ -358,9 +393,11 @@ function genFix(R: Rand, d: number, id: SpellId, learned: Learned): Level {
 // round 0 is the handcrafted lesson; later rounds are generated and get harder
 function makeRound(id: SpellId, R: Rand, d: number, learned: Learned): Level {
   if (d === 0) return LV[id];
+  if (RECAP[id]) return makeRound(pick(R, RECAP[id]), R, d, learned);
+  // Dr. Clicker: two rounds per phase, the last phase until the end
+  if (id === 'boss') return makeRound(pick(R, PHASES[Math.min(PHASES.length - 1, (d - 1) >> 1)]), R, d + 1, learned);
   if (MOVE_SPELLS.includes(id)) return genFix(R, d, id, learned);
-  const gen = id === 'boss' ? GEN[pick(R, Object.keys(GEN))] : GEN[id];
-  const { start, goal, steps } = gen(R, id === 'boss' ? d + 1 : d);
+  const { start, goal, steps } = GEN[id](R, d);
   const { sol, text } = solveSteps(start.join('\n'), steps);
   // downloaded text can trip a generator (yw stops at punctuation): fall back to the built-in text
   if (text !== goal.join('\n') && TEXT !== PROSE) {
@@ -371,4 +408,4 @@ function makeRound(id: SpellId, R: Rand, d: number, learned: Learned): Level {
   return { start: start.join('\n'), goal: goal.join('\n'), solution: sol, par: tokens(sol).length };
 }
 
-export { World, makeRound, useText, sample, rng, pick, roundSecs, upTo, LV, ROUNDS, BOSS_ROUNDS, FIGHTS, MOVE_SPELLS, GEN, solveSteps };
+export { World, RECAP, replayBonus, makeRound, useText, sample, rng, pick, roundSecs, upTo, LV, ROUNDS, BOSS_ROUNDS, FIGHTS, MOVE_SPELLS, GEN, solveSteps };
