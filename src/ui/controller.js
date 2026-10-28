@@ -552,10 +552,18 @@ export function startGame() {
         if (B) endBattle();
         return showMenu('name');
       // dev only (bun run dev): :ch 5 jumps to chapter V; stripped from the build
-      case 'ch':
+      case 'ch': {
         if (!import.meta.env.DEV || B) return err(T().notCmd(c));
-        if (!CHAPTERS[arg - 1]) return err(`:ch 1-${CHAPTERS.length}`);
-        return goTo(arg - 1, false);
+        // :ch 5 opens chapter V, :ch 5v the village after it
+        const [, n, v] = arg.match(/^(\d+)(v?)$/) || [];
+        if (!CHAPTERS[n - 1]) return err(`:ch 1-${CHAPTERS.length}, or 1v-${CHAPTERS.length}v for a village`);
+        return goTo(n - 1, !!v);
+      }
+      // dev only: the map scrolls freely and a click drops the hero on any walkable tile
+      case 'dev':
+        if (!import.meta.env.DEV) return err(T().notCmd(c));
+        document.body.classList.toggle('dev');
+        return showCmd(document.body.classList.contains('dev') ? 'dev on: scroll the map, click a tile to jump there' : 'dev off');
       default: return err(T().notCmd(c));
     }
   }
@@ -865,6 +873,12 @@ export function startGame() {
   }
 
   document.addEventListener('keydown', onKey);
+  $('map').addEventListener('click', e => {
+    const t = document.body.classList.contains('dev') && !B && e.target.closest('.t');
+    if (!t) return;
+    const i = [...$('map').children].indexOf(t), w = world.lines[0].length + 1, r = Math.floor(i / w), c = (i % w) - 1;
+    if (world.walkable(r, c)) { world.place(r, c); save(); draw(); }
+  });
   $('mVs').innerHTML = `${img('hero')}<b>VS</b>${img('clicker', 'villain')}`;
   applyLang(); loadWorld(); draw(); showMenu();
   return () => { document.removeEventListener('keydown', onKey); $('helpBtn').removeEventListener('click', onHelpBtn); $('drClose').removeEventListener('click', onDrClose); clearInterval(D?.timer); clearInterval(B?.timer); clearInterval(handTimer); css.remove(); };
