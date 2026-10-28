@@ -403,8 +403,8 @@ const CHAPTERS: Chapter[] = [
       ] },
     ],
     lore: [
-      { spr: 'keeper', name: ['Archivist Ada', 'Archivista Ada'], title: ['The Paired City', 'La ciudad de las parejas'], fact: ['The Ruins were built by the first programmers. Every hall was opened with ( and closed with ), so no room was ever left unfinished.', 'Las Ruinas las construyeron los primeros programadores. Cada sala se abría con ( y se cerraba con ), para que ninguna quedara sin terminar.'] },
-      { spr: 'bard', name: ['Bard Kay', 'Bardo Kay'], title: ['The Wrapped Librarian', 'El bibliotecario envuelto'], fact: ['The Husk Mummy was a royal librarian who wrapped every word in brackets to keep it safe. Now he cannot find the words inside.', 'La Momia Envuelta era un bibliotecario real que envolvía cada palabra en corchetes para protegerla. Ahora no encuentra las palabras de dentro.'] },
+      { spr: 'keeper', name: ['Ruin Scholar Bea', 'Erudita Bea'], title: ['The Paired City', 'La ciudad de las parejas'], fact: ['The Ruins were built by the first programmers. Every hall was opened with ( and closed with ), so no room was ever left unfinished.', 'Las Ruinas las construyeron los primeros programadores. Cada sala se abría con ( y se cerraba con ), para que ninguna quedara sin terminar.'] },
+      { spr: 'bard', name: ['Tomb Guide Rex', 'Guía Rex'], title: ['The Wrapped Librarian', 'El bibliotecario envuelto'], fact: ['The Husk Mummy was a royal librarian who wrapped every word in brackets to keep it safe. Now he cannot find the words inside.', 'La Momia Envuelta era un bibliotecario real que envolvía cada palabra en corchetes para protegerla. Ahora no encuentra las palabras de dentro.'] },
     ],
   },
   {
@@ -437,8 +437,8 @@ const CHAPTERS: Chapter[] = [
       ] },
     ],
     lore: [
-      { spr: 'keeper', name: ['Hermit Ten', 'Ermitaño Diez'], title: ['The Shifting Tide', 'La marea cambiante'], fact: ['This coast was once the Spelling Sea. When Clive clicked it, the waves began to swap letters, and the shore never kept its shape again.', 'Esta costa fue el Mar de la Ortografía. Cuando Clive hizo clic en él, las olas empezaron a cambiar letras y la orilla nunca volvió a tener su forma.'] },
-      { spr: 'bard', name: ['Drover Pia', 'Arriera Pía'], title: ['The Clipboard Pearl', 'La perla del portapapeles'], fact: ['Teacher Yank keeps a pearl that remembers the last thing you yanked. Clive tried to steal it to copy himself. The Clicker Clones came from that day.', 'La Maestra Yank guarda una perla que recuerda lo último que copiaste. Clive intentó robarla para copiarse a sí mismo. Los Clones de Clicker nacieron ese día.'] },
+      { spr: 'keeper', name: ['Tide Watcher Noa', 'Vigía Noa'], title: ['The Shifting Tide', 'La marea cambiante'], fact: ['This coast was once the Spelling Sea. When Clive clicked it, the waves began to swap letters, and the shore never kept its shape again.', 'Esta costa fue el Mar de la Ortografía. Cuando Clive hizo clic en él, las olas empezaron a cambiar letras y la orilla nunca volvió a tener su forma.'] },
+      { spr: 'bard', name: ['Pearl Diver Gus', 'Buzo Gus'], title: ['The Clipboard Pearl', 'La perla del portapapeles'], fact: ['Teacher Yank keeps a pearl that remembers the last thing you yanked. Clive tried to steal it to copy himself. The Clicker Clones came from that day.', 'La Maestra Yank guarda una perla que recuerda lo último que copiaste. Clive intentó robarla para copiarse a sí mismo. Los Clones de Clicker nacieron ese día.'] },
     ],
   },
   {
