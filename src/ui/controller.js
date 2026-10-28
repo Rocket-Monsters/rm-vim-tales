@@ -562,8 +562,8 @@ export function startGame() {
       // dev only: the map scrolls freely and a click drops the hero on any walkable tile
       case 'dev':
         if (!import.meta.env.DEV) return err(T().notCmd(c));
-        $('view').classList.toggle('dev');
-        return showCmd($('view').classList.contains('dev') ? 'dev on: scroll the map, click a tile to jump there' : 'dev off');
+        document.body.classList.toggle('dev');
+        return showCmd(document.body.classList.contains('dev') ? 'dev on: scroll the map, click a tile to jump there' : 'dev off');
       default: return err(T().notCmd(c));
     }
   }
@@ -874,7 +874,7 @@ export function startGame() {
 
   document.addEventListener('keydown', onKey);
   $('map').addEventListener('click', e => {
-    const t = $('view').classList.contains('dev') && !B && e.target.closest('.t');
+    const t = document.body.classList.contains('dev') && !B && e.target.closest('.t');
     if (!t) return;
     const i = [...$('map').children].indexOf(t), w = world.lines[0].length + 1, r = Math.floor(i / w), c = (i % w) - 1;
     if (world.walkable(r, c)) { world.place(r, c); save(); draw(); }
