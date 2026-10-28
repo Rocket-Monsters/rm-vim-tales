@@ -224,7 +224,34 @@ const CAST: Record<string, [string, string]> = {
   tailor: ['long', 'e 2 a f'], sensei: ['hood', '7 8 0 f'], jester: ['sage', 'e a 8 f f'],
 };
 
+// gate bosses: their species' art in new colors ("from:to" palette swaps) plus marks of their own
+// ([row, col, pixels], '.' leaves a pixel alone), so a boss never looks like the roamers of its kind
+const BOSS: Record<string, [string, string, [number, number, string][]]> = {
+  ratBoss: ['rat', '5:4 6:9 e:8', [[1, 2, 'a.a.a'], [2, 2, 'aaaaa'], [12, 10, '8'], [13, 9, '888']]],
+  batBoss: ['bat', '2:1 8:a', [[0, 6, 'a..a'], [1, 6, 'a..a'], [2, 0, 'a'], [2, 15, 'a'], [9, 7, '77']]],
+  snailBoss: ['snail', '4:1 9:c f:b 0:8', [[2, 3, 'a.a.a.a'], [3, 3, '.a.a.a']]],
+  boarBoss: ['boar', '4:8 5:0 7:a', [[8, 7, '6.6.6.6'], [9, 7, '6.6.6.6'], [10, 7, '6.6.6.6']]],
+  serpentBoss: ['serpent', 'b:9 3:4', [[2, 7, '666'], [3, 7, '6c6'], [4, 7, '666'], [5, 10, '6'], [6, 11, '6']]],
+  toadBoss: ['toad', 'b:3 f:a', [[2, 6, 'a..a'], [3, 6, 'aaaa'], [4, 6, 'a8aa'], [6, 3, 'e'], [8, 12, 'e'], [7, 5, 'e']]],
+  goblinBoss: ['goblin', '8:b 2:1', [[4, 4, '000000'], [4, 10, '00'], [5, 10, '00'], [3, 0, 'a'], [3, 15, 'a']]],
+  lizardBoss: ['lizard', '9:c 4:1', [[7, 1, 'a.a.a.a.a'], [4, 11, 'aaa']]],
+  spiderBoss: ['spider', '5:2 8:a', [[8, 7, '88'], [9, 6, '8888'], [10, 7, '88'], [5, 6, 'a...a']]],
+  scorpionBoss: ['scorpion', '9:8 8:a', [[1, 13, 'aa'], [2, 12, 'a.aa'], [7, 9, 'aaaa']]],
+  crabBoss: ['crab', '8:9', [[0, 6, '0000'], [1, 6, '0000'], [2, 6, '0880'], [3, 5, '000000']]],
+  ghostBoss: ['ghost', '7:d d:2 0:a', [[7, 3, '11'], [8, 3, '1'], [9, 3, '1'], [10, 3, '11'], [7, 11, '11'], [8, 12, '1'], [9, 12, '1'], [10, 11, '11']]],
+  wolfBoss: ['wolf', '5:1 6:c', [[2, 5, '888888'], [3, 4, '88888888'], [3, 12, '8'], [12, 6, 'aaaa']]],
+  catBoss: ['cat', '9:5 e:8', [[7, 3, '000000000'], [12, 4, 'aaaaaa']]],
+  owlBoss: ['owl', '4:d f:7 7:a', [[0, 3, '0000000000'], [1, 6, '0000'], [1, 12, 'a'], [2, 12, 'a']]],
+};
+
 function grid(name: string): string[] {
+  const boss = BOSS[name];
+  if (boss) {
+    const [base, swaps, marks] = boss, sw = Object.fromEntries(swaps.split(' ').map(p => p.split(':')));
+    const rows = Array.from({ length: 16 }, (_, y) => [...(ART[base][y] ?? '').padEnd(16, '.')].map(ch => sw[ch] ?? ch));
+    for (const [y, x, px] of marks) [...px].forEach((ch, i) => { if (ch !== '.') rows[y][x + i] = ch; });
+    return rows.map(r => r.join('').replace(/\.+$/, ''));
+  }
   const cast = CAST[name];
   const rows = ART[cast ? cast[0] : name];
   if (!rows) throw new Error(`no sprite ${name}`);
@@ -355,6 +382,6 @@ function groundTiles(g: Ground): Record<string, string> {
   return out;
 }
 const TEMPLATES = new Set(Object.values(CAST).map(c => c[0]));
-const NAMES = [...Object.keys(ART).filter(n => !TEMPLATES.has(n)), ...Object.keys(CAST)];
+const NAMES = [...Object.keys(ART).filter(n => !TEMPLATES.has(n)), ...Object.keys(CAST), ...Object.keys(BOSS)];
 
 export { sprite, outfit, grid, pixels, groundTiles, PAL, NAMES };
