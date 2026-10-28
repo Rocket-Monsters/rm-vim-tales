@@ -8,6 +8,8 @@ const ROUNDS = 5, BOSS_ROUNDS = 8;
 // fights against roaming monsters: how many rounds (each a random learned spell) and how much of the usual clock
 const FIGHTS = { ambush: { rounds: 1, time: 1 }, swarm: { rounds: 3, time: 1 }, blitz: { rounds: 1, time: 0.5 } } as const;
 // seconds on the clock for a round: a base plus a few seconds per keystroke of par
+// gold for a ★★★ :train replay: 3g (a third of a chest), 20% less for each one before it
+const replayBonus = (n: number) => Math.round(3 * 0.8 ** n);
 const roundSecs = (par: number, perKey: number, time = 1) => Math.round((10 + par * perKey) * time);
 // every spell learned once you've mastered `id` (hjkl is innate)
 const upTo = (id: SpellId) => new Set(['hjkl', ...LEVELS.slice(0, LEVELS.findIndex(l => l.id === id) + 1).map(l => l.id)]);
@@ -15,14 +17,15 @@ const upTo = (id: SpellId) => new Set(['hjkl', ...LEVELS.slice(0, LEVELS.findInd
 // ---------- overworld ----------
 // The map is a read-only vim buffer. Grass, path and water are "blank" so w/b/e leap over them;
 // stepping-stones (=) are words. Walking (hjkl) goes tile by tile, every other motion is a leap.
-const WALK = ' .o=$%+>';
-const mapCls = (ch: string | undefined) => (ch !== undefined && ' .o~'.includes(ch) ? 0 : ch === '=' ? 1 : 2);
+// _ is an opened chest: walkable, blank like grass
+const WALK = ' .o=$%+>_';
+const mapCls = (ch: string | undefined) => (ch !== undefined && ' .o~_'.includes(ch) ? 0 : ch === '=' ? 1 : 2);
 const DIRS: Record<string, [number, number]> = { h: [0, -1], j: [1, 0], k: [-1, 0], l: [0, 1] };
 
 // one key on the map → what happened
 export interface MapEvent {
   picked: string[]; wait?: boolean; locked?: SpellId | 'unknown' | 'battle';
-  bump?: Pos & { t: string | undefined }; blocked?: boolean; foe?: Roamer; exit?: boolean; face?: number;
+  bump?: Pos & { t: string | undefined }; blocked?: boolean; foe?: Roamer; exit?: boolean; face?: number; looted?: boolean;
 }
 export interface Roamer extends Pos { dr: number; dc: number }
 
@@ -31,10 +34,13 @@ class World {
   start!: Pos;
   nav: Vim;
   npcAt: Record<string, number> = {};
+  // every $ of the chapter map in reading order: chest n has the save id "<chapter>.$<n+1>"
+  chests: Pos[] = [];
   constructor(chapter: { map: string[] }, saved?: string[] | null) {
     chapter.map.forEach((row, r) => [...row].forEach((t, c) => {
       if (t === 'M' || t === 'W') this.roamers.push({ r, c, dr: t === 'W' ? 1 : 0, dc: t === 'M' ? 1 : 0 });
       if (t === '@') this.start = { r, c };
+      if (t === '$') this.chests.push({ r, c });
     }));
     const lines = saved || chapter.map.map(row => row.replace(/[MW@]/g, ' '));
     this.nav = new Vim(lines.join('\n'), true, mapCls);
@@ -84,7 +90,8 @@ class World {
   }
   step(ev: MapEvent) {
     const t = this.at(this.r, this.c)!;
-    if ('$%+'.includes(t)) { this.set(this.r, this.c, ' '); ev.picked.push(t); }
+    if ('$%+'.includes(t)) { this.set(this.r, this.c, t === '$' ? '_' : ' '); ev.picked.push(t); }
+    if (t === '_') ev.looted = true;
     if (t === '>') ev.exit = true;
     ev.foe ||= this.roamers.find(m => m.r === this.r && m.c === this.c);
   }
@@ -371,4 +378,4 @@ function makeRound(id: SpellId, R: Rand, d: number, learned: Learned): Level {
   return { start: start.join('\n'), goal: goal.join('\n'), solution: sol, par: tokens(sol).length };
 }
 
-export { World, makeRound, useText, sample, rng, pick, roundSecs, upTo, LV, ROUNDS, BOSS_ROUNDS, FIGHTS, MOVE_SPELLS, GEN, solveSteps };
+export { World, replayBonus, makeRound, useText, sample, rng, pick, roundSecs, upTo, LV, ROUNDS, BOSS_ROUNDS, FIGHTS, MOVE_SPELLS, GEN, solveSteps };
