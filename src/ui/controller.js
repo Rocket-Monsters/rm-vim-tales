@@ -29,11 +29,22 @@ export function startGame() {
 
   // ---------- state ----------
   const browserLang = () => (navigator.language || '').startsWith('es') ? 'es' : 'en';
-  const fresh = () => ({ ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false, opened: [], replays: {}, lore: [],
+  // saves from before chapters V–VI (no v): the tower and its Victory Parade were stage 4, now 6.
+  // A player who was in the tower goes to the chapter holding their first unbeaten lesson
+  function migrate(s) {
+    if (!s || s.v) return s;
+    const re = id => id.replace(/^(v?)5\./, '$17.'), key = k => (k == 4 ? 6 : k === 'v4' ? 'v6' : k), best = s.best || {};
+    s.opened = (s.opened || []).map(re); s.lore = (s.lore || []).map(re); s.seen = (s.seen || []).map(key);
+    s.maps = Object.fromEntries(Object.entries(s.maps || {}).map(([k, v]) => [key(k), v]));
+    if (s.ch === 4 && s.village) s.ch = 6;
+    else if (s.ch === 4) { s.ch = Math.max(4, CHAPTERS.findIndex(ch => ch.levels.some(id => best[id] == null))); s.lines = s.pos = s.spawn = null; }
+    return { ...s, v: 2 };
+  }
+  const fresh = () => ({ v: 2, ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false, opened: [], replays: {}, lore: [],
     name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang(), text: null,
     village: false, owned: [], wear: {}, maps: {} });
   let S = fresh();
-  try { S = { ...S, ...JSON.parse(localStorage.getItem(SAVE)) }; } catch {}
+  try { S = { ...S, ...migrate(JSON.parse(localStorage.getItem(SAVE))) }; } catch {}
   useText(S.text?.lines, S.text?.kind === 'code');
   let world, face = 1, B = null;
   // after each chapter's exit comes its festival village (same index), then the next chapter
@@ -56,7 +67,7 @@ export function startGame() {
     try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch {}
   }
   // a save made before a map update keeps the old layout: reload the map, keep beaten gates open
-  const shape = rows => rows.map(r => r.replace(/[$_%+|A-E@MW]/g, ' ')).join('\n');
+  const shape = rows => rows.map(r => r.replace(/[$_♥%+|A-E@MW]/g, ' ')).join('\n');
   // the treasure ledger: S.opened holds the id of every chest taken this save, so no chest ever refills
   const chestId = i => `${S.village ? 'v' : ''}${S.ch + 1}.$${i + 1}`;
   function syncChests() {
@@ -109,7 +120,7 @@ export function startGame() {
   const note = t => { $('note').textContent = nm(t); };
 
   // ---------- overworld ----------
-  const OBJ = { $: 'chest', _: 'chestOpen', '%': 'heart', '+': 'key', '|': 'door', '>': 'portal', H: 'house' };
+  const OBJ = { $: 'chest', _: 'chestOpen', '♥': 'heart', '+': 'key', '|': 'door', '>': 'portal', H: 'house' };
   function tile(t, r, c) {
     // anything standing in the water sits on a little sand island
     const ch = CH(), v = ((r * 7 + c * 13) ^ (r * c)) & 3, floor = t !== '#' && rowsAround(r, c).includes('~') && !/[ ]/.test(rowsAround(r, c)) ? 'g-isle' : 'g-f' + v;
@@ -118,6 +129,8 @@ export function startGame() {
     if (t === '~') return ['water g-water', ''];
     if (t === '=') return ['g-stone', ''];
     if (t === 'o') return ['g-isle', '<b class="isle">o</b>'];
+    // bracket pillars: walkable, and % leaps to the partner
+    if ('()[]{}'.includes(t)) return [floor, `<b class="pillar">${t}</b>`];
     if (t === '.') return [rowsAround(r, c).includes('~') ? 'g-isle' : 'g-path' + (v & 1), ''];
     if (OBJ[t]) return [floor + (t === '>' ? ' portal' : ''), img(OBJ[t])];
     if (t === '&') return [floor, img(ch.npcs[world.npcAt[r + ',' + c]].spr)];
@@ -202,7 +215,7 @@ export function startGame() {
     if (ev.blocked) note(T().cantLand);
     for (const t of ev.picked) {
       if (t === '$') { S.gold += 10; note(T().gold); syncChests(); }
-      if (t === '%') { S.hearts = Math.min(MAX_HEARTS, S.hearts + 1); note(T().heal); }
+      if (t === '♥') { S.hearts = Math.min(MAX_HEARTS, S.hearts + 1); note(T().heal); }
       if (t === '+') { S.keys++; note(T().keyFound); }
     }
     if (ev.looted) note(T().looted);
@@ -538,6 +551,11 @@ export function startGame() {
       case 'new!':
         if (B) endBattle();
         return showMenu('name');
+      // dev only (bun run dev): :ch 5 jumps to chapter V; stripped from the build
+      case 'ch':
+        if (!import.meta.env.DEV || B) return err(T().notCmd(c));
+        if (!CHAPTERS[arg - 1]) return err(`:ch 1-${CHAPTERS.length}`);
+        return goTo(arg - 1, false);
       default: return err(T().notCmd(c));
     }
   }

@@ -5,6 +5,13 @@ type Learned = ReadonlySet<string>;
 const LV = Object.fromEntries(LEVELS.map(l => [l.id, l])) as Record<SpellId, Lesson>;
 const MOVE_SPELLS: SpellId[] = ['hjkl', 'words', 'edges', 'counts', 'find'];
 const ROUNDS = 5, BOSS_ROUNDS = 8;
+// recap guardians (and Dr. Clicker's phases, in this order) draw each round from one group of earlier spells
+const RECAP: Record<string, SpellId[]> = {
+  recap1: ['hjkl', 'words', 'edges', 'counts', 'find'],
+  recap2: ['x', 'insert', 'lines', 'delete', 'motions', 'change'],
+  recap3: ['inside', 'around', 'replace', 'yank', 'dot'],
+};
+const PHASES = Object.values(RECAP);
 // fights against roaming monsters: how many rounds (each a random learned spell) and how much of the usual clock
 const FIGHTS = { ambush: { rounds: 1, time: 1 }, swarm: { rounds: 3, time: 1 }, blitz: { rounds: 1, time: 0.5 } } as const;
 // seconds on the clock for a round: a base plus a few seconds per keystroke of par
@@ -17,8 +24,8 @@ const upTo = (id: SpellId) => new Set(['hjkl', ...LEVELS.slice(0, LEVELS.findInd
 // ---------- overworld ----------
 // The map is a read-only vim buffer. Grass, path and water are "blank" so w/b/e leap over them;
 // stepping-stones (=) are words. Walking (hjkl) goes tile by tile, every other motion is a leap.
-// _ is an opened chest: walkable, blank like grass
-const WALK = ' .o=$%+>_';
+// _ is an opened chest: walkable, blank like grass. Bracket pillars ( ) [ ] { } are walkable words that % leaps between
+const WALK = ' .o=$♥+>_()[]{}';
 const mapCls = (ch: string | undefined) => (ch !== undefined && ' .o~_'.includes(ch) ? 0 : ch === '=' ? 1 : 2);
 const DIRS: Record<string, [number, number]> = { h: [0, -1], j: [1, 0], k: [-1, 0], l: [0, 1] };
 
@@ -63,8 +70,9 @@ class World {
     const v = this.nav, cmd = v.pending + k, ev: MapEvent = { picked: [] };
     if (k === '<Esc>') { v.pending = ''; return ev; }
     const need = needs(cmd);
+    const onMap = (s: SpellId) => MOVE_SPELLS.includes(s) || (s === 'around' && k === '%');
     const lock = !need.length && !/^[1-9]\d*$/.test(cmd) ? 'unknown'
-      : need.find(s => !MOVE_SPELLS.includes(s)) || cmd === 'i' || cmd === 'u' ? 'battle' : need.find(s => !learned.has(s));
+      : need.find(s => !onMap(s)) || cmd === 'i' || cmd === 'u' ? 'battle' : need.find(s => !learned.has(s));
     if (lock) { v.pending = ''; ev.locked = lock; return ev; }
     const walk = cmd.match(/^([1-9]\d*)?([hjkl])$/);
     if (walk) {
@@ -92,7 +100,7 @@ class World {
   }
   step(ev: MapEvent) {
     const t = this.at(this.r, this.c)!;
-    if ('$%+'.includes(t)) { this.set(this.r, this.c, t === '$' ? '_' : ' '); ev.picked.push(t); }
+    if ('$♥+'.includes(t)) { this.set(this.r, this.c, t === '$' ? '_' : ' '); ev.picked.push(t); }
     if (t === '_') ev.looted = true;
     if (t === '>') ev.exit = true;
     ev.foe ||= this.roamers.find(m => m.r === this.r && m.c === this.c);
@@ -224,6 +232,24 @@ const GEN: Record<string, (R: Rand, d: number) => Generated> = {
         return o;
       }).join(' ');
     });
+    return { start, goal, steps: steps.reverse() };
+  },
+  // each line gets one extra thing to cut whole: a doubled word (daw), a stray (group) (da() or [index] (da[)
+  around(R, d) {
+    const start: string[] = [], goal: string[] = [], steps: Step[] = [];
+    for (let r = 0; r < 2 + Math.ceil(d / 2); r++) {
+      const t = R();
+      if (t < 0.4) {
+        const line = pick(R, TEXT), ws = wordStarts(line), w = pick(R, ws), word = line.slice(w).split(' ')[0];
+        goal.push(line); start.push(line.slice(0, w) + word + ' ' + line.slice(w));
+        steps.push({ r, c: w, keys: 'daw' });
+      } else {
+        const [tpl, obj] = t < 0.7 ? [pick(R, ['open(chest)', 'heal(hero)', 'save(game)', 'attack(goblin)']), '('] : [pick(R, ['items[0]', 'map[row]', 'gems[3]', 'keys[i]']), '['];
+        const junk = obj === '(' ? `(${pick(R, ARGS)})` : `[${pick(R, ['9', 'old', 'n - 1', 'tmp'])}]`;
+        goal.push(tpl); start.push(tpl + junk);
+        steps.push({ r, c: tpl.length, keys: `da${obj}` });
+      }
+    }
     return { start, goal, steps: steps.reverse() };
   },
   inside(R, d) {
@@ -367,9 +393,11 @@ function genFix(R: Rand, d: number, id: SpellId, learned: Learned): Level {
 // round 0 is the handcrafted lesson; later rounds are generated and get harder
 function makeRound(id: SpellId, R: Rand, d: number, learned: Learned): Level {
   if (d === 0) return LV[id];
+  if (RECAP[id]) return makeRound(pick(R, RECAP[id]), R, d, learned);
+  // Dr. Clicker: two rounds per phase, the last phase until the end
+  if (id === 'boss') return makeRound(pick(R, PHASES[Math.min(PHASES.length - 1, (d - 1) >> 1)]), R, d + 1, learned);
   if (MOVE_SPELLS.includes(id)) return genFix(R, d, id, learned);
-  const gen = id === 'boss' ? GEN[pick(R, Object.keys(GEN))] : GEN[id];
-  const { start, goal, steps } = gen(R, id === 'boss' ? d + 1 : d);
+  const { start, goal, steps } = GEN[id](R, d);
   const { sol, text } = solveSteps(start.join('\n'), steps);
   // downloaded text can trip a generator (yw stops at punctuation): fall back to the built-in text
   if (text !== goal.join('\n') && TEXT !== PROSE) {
@@ -380,4 +408,4 @@ function makeRound(id: SpellId, R: Rand, d: number, learned: Learned): Level {
   return { start: start.join('\n'), goal: goal.join('\n'), solution: sol, par: tokens(sol).length };
 }
 
-export { World, replayBonus, makeRound, useText, sample, rng, pick, roundSecs, upTo, LV, ROUNDS, BOSS_ROUNDS, FIGHTS, MOVE_SPELLS, GEN, solveSteps };
+export { World, RECAP, replayBonus, makeRound, useText, sample, rng, pick, roundSecs, upTo, LV, ROUNDS, BOSS_ROUNDS, FIGHTS, MOVE_SPELLS, GEN, solveSteps };

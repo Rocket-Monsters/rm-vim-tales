@@ -29,10 +29,14 @@ export const LESSONS_ES = {
   delete: ['El cortador', 'd es un operador: combínalo con un movimiento. dw borra una palabra, dd borra una línea entera, 3dd borra tres.', ['borrar palabra', 'borrar línea', 'borrar 3 líneas']],
   motions: ['Operador + movimiento', 'Cualquier movimiento funciona tras d: d$ (o D) borra hasta el final de la línea, dt) borra hasta un ")", df; borra incluyendo el ";", d0 hasta el inicio.', ['borrar hasta el final', 'borrar hasta', 'borrar incluyendo', 'borrar hasta el inicio']],
   change: ['Cambiar palabra', 'c es borrar + insertar. cw cambia desde el cursor hasta el final de la palabra, cc cambia la línea entera, C cambia hasta el final de la línea.', ['cambiar palabra', 'cambiar línea', 'cambiar hasta el final']],
-  inside: ['Por dentro', 'Objetos de texto: tras un operador, i{obj} significa "dentro" y a{obj} "alrededor". ciw cambia la palabra bajo el cursor estés donde estés, ci" cambia dentro de comillas, ci( dentro de paréntesis.', ['cambiar palabra interior', 'cambiar entre comillas', 'cambiar entre paréntesis', 'borrar con paréntesis']],
+  inside: ['Por dentro', 'Objetos de texto: tras un operador, i{obj} significa "dentro". ciw cambia la palabra bajo el cursor estés donde estés, ci" cambia dentro de comillas, ci( dentro de paréntesis.', ['cambiar palabra interior', 'cambiar entre comillas', 'cambiar entre paréntesis']],
+  around: ['Alrededor', 'a{obj} significa "alrededor": el objeto y su envoltorio. daw borra una palabra y su espacio, da( un (grupo) entero, da[ una [lista] entera. % salta de un corchete a su pareja.', ['borrar una palabra', 'borrar con paréntesis', 'borrar con corchetes', 'corchete pareja']],
   replace: ['Cambiaformas', 'r{car} reemplaza un carácter sin entrar en modo insertar. ~ alterna mayúsculas/minúsculas y avanza.', ['reemplazar carácter', 'alternar mayúsculas']],
   yank: ['Copión', 'y copia ("yank") con cualquier movimiento: yw una palabra, yy una línea. p pega después del cursor (o debajo si son líneas), P pega antes. Todo lo que borras también se puede pegar.', ['copiar palabra', 'copiar línea', 'pegar después', 'pegar antes']],
   dot: ['Ecos', '. repite tu último cambio: la tecla más poderosa de vim. Cambia un foo, salta al siguiente y pulsa . — y u sigue deshaciendo.', ['repetir cambio']],
+  recap1: ['Repaso: Tormenta de Clics', 'Todos los hechizos de movimiento de los capítulos I y II a la vez. Cada hueco pide un salto distinto: palabras, bordes, cuentas o una búsqueda.', ['siguiente palabra', 'fin de línea', 'primer no-blanco', 'buscar x']],
+  recap2: ['Repaso: Mancha de Arrastre', 'Todos los hechizos de edición de los capítulos III y IV: x, insertar, A I o O, d con movimientos, c.', ['borrar carácter', 'añadir al final', 'borrar línea', 'cambiar palabra']],
+  recap3: ['Repaso: Clones de Clicker', 'Todo lo de los capítulos V y VI: objetos de texto, reemplazar, copiar y pegar, y el punto.', ['cambiar entre comillas', 'cambiar palabra', 'repetir cambio', 'copiar una palabra']],
   boss: ['Jefe: la refactorización', 'Todo lo que sabes. Renombra la función, añade un parámetro, arregla la cuenta, elimina el código muerto.', ['', '', '', '', '']],
 };
 

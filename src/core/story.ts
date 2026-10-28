@@ -2,7 +2,7 @@
 // Map legend:  # wall  ^ rock  ~ water  H house   (blocked)
 //              ' ' grass  . path/island  = stepping-stone  (walkable; '=' counts as a word for w/b/e)
 //              o  island (walkable, blank for w/b/e: reach it with fo / Fo / ;)
-//              $ treasure  % heart  + key  | door (needs a key)  > exit  @ start
+//              $ treasure  ♥ heart  + key  | door (needs a key)  > exit  @ start
 //              & villager   a-e sage teaching chapter.levels[i]   A-E monster guarding that level's battle
 //              L  lore keeper: tells chapter.lore[i] (i = reading order) and adds it to the :lore journal
 //              M / W  roaming monster patrolling horizontally / vertically
@@ -33,14 +33,14 @@ const MAPS: string[][] = [
     '#  ###     #####  #  #  #  #     #  +  #####  #   ###   #  #  #  #####  #  #   #',
     '#  #$#  M         #     #  ####  #     ##     #     #      #     #   M  #  ### #',
     '#       ####  &   #######        #|##  ##  $  ####  #  M   ####  #   ####    $ #',
-    '#H  $      #           M         #$ #  ##          #           %#              #',
+    '#H  $      #           M         #$ #  ##          #           ♥#              #',
     '############################################################################A###',
     '#  L  &  ~~~~~~~~~~~~~~~~~~~~          #      ~~~~~~~~~~~~~~~~~~~~~~~~~~~ b    #',
     '#        ~~~~~~~~~~~~~~~~~~~~          #      =~~~=~~~~=~~~$~~~=~~~=~~~~=      #',
-    '#   %    ==~~~~~$~~~~==~~~~~~          #      ~~~~~~~~~~~~~~~~~~~~~~~~~~~  $   #',
+    '#   ♥    ==~~~~~$~~~~==~~~~~~          #      ~~~~~~~~~~~~~~~~~~~~~~~~~~~  $   #',
     '#        ~~~~~~~~~~~~~~~~~~~~    $            ==~~==~~~==~~~~~=~~~==~~~==      #',
     '#   M    ==~~==~~~=~~~===~~==          #      ~~~~~~~~~~~~~~~~~~~~~~~~~~~      #',
-    '#        ~~~~~~~~~~~~~~~~~~~~          #   $  =~~~=~~~=~~$=~~~=~~~=~~~==~  %   #',
+    '#        ~~~~~~~~~~~~~~~~~~~~          #   $  =~~~=~~~=~~$=~~~=~~~=~~~==~  ♥   #',
     '#  $     =~~~=~~~~~~~=~~~~~$~          #      ~~~~~~~~~~~~~~~~~~~~~~~~~~~      #',
     '##############################B#################################################',
     '#     c                                                               $         ',
@@ -67,7 +67,7 @@ const MAPS: string[][] = [
     '#  #   M     #  #  #    W  ######  #   #################################',
     '#  ######    #                                  M                      #',
     '#            #  M       #     W    #                                 $ #',
-    '   .   &     #          #          #                      M       %    #',
+    '   .   &     #          #          #                      M       ♥    #',
     '######################################################################A#',
     '#                         &                                         b  #',
     '#~~~o~~~~~~~~o~~~~~~~~~~~~~$~~~~~~~#~~~~o~~~~~~~~~o~~~~~~~~~~$~~~~o~~~~#',
@@ -98,7 +98,7 @@ const MAPS: string[][] = [
     '#~~~~~~~o~~~~~~~~~~~~~~~~~~~~=~~~~~#~~~~~~=~~~~~~~~~~~~~~~~~~~=~~~~~~~~#',
     '#~~~~~~~o~~~~~~$~~~~~~~~~~~~~=~~~~~#~~~~~~=~~~~~~~~~~~~~~~~~~~=~~~~~~~~#',
     '#~~~~~~~~~~~~~~~~~~~~~~~~~~~~=~~~~~#~~~~~~=~~~~~~~~~~~~~~~~~~~=~~~~~~~~#',
-    '#L          %                   &  #######$################### #########',
+    '#L          ♥                   &  #######$################### #########',
     '##############################################################B#########',
     '#  c                                            $                      #',
     '################ #######################################################',
@@ -120,7 +120,7 @@ const MAPS: string[][] = [
     '#  $       ^  &   ^   ^      ^   #            ^^^             M    #',
     '#  ^^^^^^^^^      ^^^^^      ^ $ #  $   ^            ^^^^       ^  #',
     '#        M           W       ^   #          ^   M                  #',
-    '#   %          ^^^          $^   #      ^^                $    ^   #',
+    '#   ♥          ^^^          $^   #      ^^                $    ^   #',
     '################################################################A###',
     '#  b         &                                                     #',
     '#~~~~~~~o~~~~~~~~~~~~~==~~~~~~~~~#~~~~o~~~~~~~~~~~==~~~~~~~~~~o~~~~#',
@@ -134,17 +134,69 @@ const MAPS: string[][] = [
     '# ##################################################################',
     '# $   M         M        M   =        $      M            M      $ #',
     '#############################C######################################',
-    '#  $  >                                       $              %     #',
+    '#  $  >                                       $              ♥     #',
     '####################################################################',
   ],
   [
     '############################################################',
+    '#       $  #  (^^^^^^^^)         ♥  [~~~~~~~~]# L          #',
+    '# @ a      #  (^^^^^^^^)            [~~~~~~~~]#$    $      #',
+    '#          #  (^^^^^^^^)    M       [~~~~~~~~]#####        #',
+    '#             (^^^^^^^^)            [~~~~~~~~]             #',
+    '#             (^^^^^^^^)            [~~~~~~~~]             #',
+    '#  &       #  (^^^^^^^^)            [~~~~~~~~]   M         #',
+    '#          #  (^^^^^^^^) $          [~~~~~~~~]             #',
+    '#          #  (^^^^^^^^)            [~~~~~~~~]          +  #',
+    '########################################################A###',
+    '#         {~~~~~~}      {^^^^^^}        [~~~~~]     b      #',
+    '# ######  {~~~~~~}      {^^^^^^} $      [~~~~~]            #',
+    '# #$  |   {~~~~~~}      {^^^^^^}        [~~~~~]        &   #',
+    '########  {~~~~~~}      {^^^^^^}        [~~~~~]            #',
+    '##L#      {~~~~~~}      {^^^^^^}        [~~~~~]   M        #',
+    '## #      {~~~~~~} M    {^^^^^^}        [~~~~~]            #',
+    '#   ♥     {~~~~~~}      {^^^^^^}        [~~~~~]            #',
+    '#         {~~~~~~}      {^^^^^^}        [~~~~~]          $ #',
+    '###B########################################################',
+    '#        $          M                       M              #',
+    '#             (~~~~)              {^^^^}                 > #',
+    '#                           $                     $        #',
+    '############################################################',
+  ],
+  [
+    '############################################################',
+    '# H           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~        $      #',
+    '# @ a         ~~~~o~~~~~~~~o~~~~$~~~~o~~~~~o               #',
+    '#  &          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~      M        #',
+    '#             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~               #',
+    '#             ~~~~~~~~~~~L~~~~~~~~~~~~~~~~~~  M            #',
+    '#     ♥       o~~~~~~~~~~o~~~~~~~~~~~~~~~~~            $   #',
+    '#             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~               #',
+    '#########################################################A##',
+    '#   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #',
+    '#   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~b  #',
+    '#   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #',
+    '#$  ==~~==~~~===~~=~~~==~~~=~~$==~~=~~~~=~~==~~~=~~~==~=   #',
+    '#   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~L~~~~~~~~~~~~~~~ & #',
+    '#   o~~~~~~~~~~~~~~~o~~~~~~~~~~~~~~~~~~~o~~~~~~~~~~~~~~~   #',
+    '#♥  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   #',
+    '##B#########################################################',
+    '#  c                M                   $                  #',
+    '#^^^^^^^^^^^^^^^^^^^^   ^^^^^^^^^^^^^^^^^^^^    ^^^^^^^    #',
+    '#           M                 ♥             M              #',
+    '#     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^    ^^^^^^^^^^^^^^     #',
+    '# $                      M                             $   #',
+    '#########################################################C##',
+    '# $                           >                   $        #',
+    '############################################################',
+  ],
+  [
+    '############################################################',
     '#     ^^^^^             $    #      ^^^           $        #',
-    '#  E  ^^^^^      e                        M               L#',
-    '#     M          M           #      ^^^                %   #',
-    '###########################D################################',
+    '#  D  ^^^^^      d                        M               L#',
+    '#     M          M           #      ^^^                ♥   #',
+    '########################### ################################',
     '#     W           W          #        W           W        #',
-    '#d        ^^^   $   ^^^           ^^^       $       ^^^    #',
+    '#         ^^^   $   ^^^           ^^^       $       ^^^    #',
     '#  $        W           W    #                          $  #',
     '######################################################C#####',
     '#   ~~~L~~~~~~~~~~~~~~       #~~~~~~~~~~~~~~~~~~~~~~~~o~~~~#',
@@ -153,7 +205,7 @@ const MAPS: string[][] = [
     '##########################B#################################',
     '#      ~~~~~~~~~~~      $    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#',
     '#  b   ~~=~~==~~~=   M        =~~=~~~=~~$=~~~=~~=~~~~=     #',
-    '#   %  ~~~~~~~~~~~           #~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~#',
+    '#   ♥  ~~~~~~~~~~~           #~~~~~~~~~~~~~~~~~~~~~~~~~~~ ~#',
     '#########################################################A##',
     '#   $        M                        M               $    #',
     '#   ^^^^^^^^^^^^^^^^^^^^^    #  ^^^^^^^^^^^^^^^^^^^^^^     #',
@@ -327,19 +379,89 @@ const CHAPTERS: Chapter[] = [
     ],
   },
   {
-    name: ['Chapter V — Dr. Clicker\'s Tower', 'Capítulo V — La Torre del Dr. Clicker'], ground: { kind: 'tiles', ramp: ['#1f1b2e', '#2e2944', '#423b5e', '#655d88'] }, wall: 'brick', roamer: 'pointer',
+    name: ['Chapter V — The Object Ruins', 'Capítulo V — Las Ruinas de los Objetos'], ground: { kind: 'tiles', ramp: ['#4a3a2a', '#6b5638', '#8f7748', '#c9a96e'] }, wall: 'brick', roamer: 'ghost',
+    intro: [
+      ['', '', ['STAGE 5. An ancient city built in pairs: every hall opens with ( and closes with ). Ghosts drift between the pillars.', 'NIVEL 5. Una ciudad antigua construida en parejas: cada sala se abre con ( y se cierra con ). Los fantasmas flotan entre los pilares.']],
+      ['hero', '', ['Rubble and water fill every hall. I can\'t walk across... but the pillars come in pairs. If I leap from one to its partner, I\'m through.', 'Escombros y agua llenan cada sala. No puedo cruzar caminando... pero los pilares van en pareja. Si salto de uno a su pareja, paso.']],
+    ],
+    map: MAPS[4],
+    levels: ['inside', 'around'],
+    sages: [
+      { spr: 'witch', name: ['Witch Inna', 'Bruja Inna'], say: [
+        ['Words, quotes, parentheses... everything is an object, little cursor. Strike from the inside.', 'Palabras, comillas, paréntesis... todo es un objeto, pequeño cursor. Ataca desde dentro.'],
+        ['The halls ahead are walled with rubble between pillars. Stand on a ( and leap with f) to its partner.', 'Las salas de delante tienen escombros entre pilares. Párate en un ( y salta con f) a su pareja.'],
+      ] },
+      { spr: 'ayla', name: ['Archivist Ayla', 'Archivista Ayla'], say: [
+        ['Inside is only half of it. Around means the thing AND its wrapping: the word and its space, the brackets and all.', 'Dentro es solo la mitad. Alrededor es la cosa Y su envoltorio: la palabra y su espacio, los corchetes y todo.'],
+        ['And here is a secret of the ruins: on any bracket, % takes you straight to its partner.', 'Y un secreto de las ruinas: sobre cualquier corchete, % te lleva directo a su pareja.'],
+      ] },
+    ],
+    npcs: [
+      { spr: 'explorer', name: ['Explorer', 'Exploradora'], say: [
+        ['I came for the treasure and stayed for the brackets. Every ( has its ), you know. Always.', 'Vine por el tesoro y me quedé por los corchetes. Cada ( tiene su ), ¿sabes? Siempre.'],
+      ] },
+      { spr: 'mason', name: ['Old Mason', 'Viejo Albañil'], say: [
+        ['There is a vault by the west wall. Its key fell somewhere in the east court.', 'Hay una cámara junto al muro oeste. Su llave cayó en algún lugar del patio este.'],
+      ] },
+    ],
+    lore: [
+      { spr: 'keeper', name: ['Ruin Scholar Bea', 'Erudita Bea'], title: ['The Paired City', 'La ciudad de las parejas'], fact: ['The Ruins were built by the first programmers. Every hall was opened with ( and closed with ), so no room was ever left unfinished.', 'Las Ruinas las construyeron los primeros programadores. Cada sala se abría con ( y se cerraba con ), para que ninguna quedara sin terminar.'] },
+      { spr: 'bard', name: ['Tomb Guide Rex', 'Guía Rex'], title: ['The Wrapped Librarian', 'El bibliotecario envuelto'], fact: ['The Husk Mummy was a royal librarian who wrapped every word in brackets to keep it safe. Now he cannot find the words inside.', 'La Momia Envuelta era un bibliotecario real que envolvía cada palabra en corchetes para protegerla. Ahora no encuentra las palabras de dentro.'] },
+    ],
+  },
+  {
+    name: ['Chapter VI — Shapeshifter Coast', 'Capítulo VI — La Costa Cambiaformas'], ground: { kind: 'grass', ramp: ['#8f7a4e', '#c2a36b', '#dcc28a', '#f0dfae'], water: ['#1d4f6b', '#2a6f97', '#4f9cc4', '#a6dcef'] }, wall: 'oak', roamer: 'crab',
+    intro: [
+      ['', '', ['STAGE 6. A windy shore where nothing keeps its shape: villagers SHOUT one minute and whisper the next, cats copy everything, and an owl repeats your last word forever.', 'NIVEL 6. Una costa ventosa donde nada conserva su forma: los aldeanos GRITAN un minuto y susurran al siguiente, los gatos lo copian todo y un búho repite tu última palabra para siempre.']],
+      ['hero', '', ['Islands, a long pier and crab rocks. The sea only lets me cross by leaping: islands with f, planks with w and b.', 'Islas, un muelle largo y rocas de cangrejos. El mar solo me deja cruzar saltando: islas con f, tablones con w y b.']],
+    ],
+    map: MAPS[5],
+    levels: ['replace', 'yank', 'dot'],
+    sages: [
+      { spr: 'captain', name: ['Captain Tilde', 'Capitán Tilde'], say: [
+        ['SHOUTING or whispering, I decide! And I fix a letter without ever entering insert mode.', '¡GRITAR o susurrar, yo decido! Y arreglo una letra sin entrar nunca en modo insertar.'],
+        ['The Caps Wolf waits across the sea. Hop the islands: fo, then ; ; ;', 'El Lobo Mayúsculo espera al otro lado del mar. Salta por las islas: fo, y luego ; ; ;'],
+      ] },
+      { spr: 'teacher', name: ['Teacher Yank', 'Maestra Yank'], say: [
+        ['Never type the same thing twice. Copy it. Vim calls it yanking. Don\'t ask why.', 'Nunca escribas lo mismo dos veces. Cópialo. Vim lo llama "yank". No preguntes por qué.'],
+        ['The Copy Cat sits at the far end of the pier. Every plank is a word: b takes you back along it.', 'El Gato Copión está al final del muelle. Cada tablón es una palabra: b te lleva de vuelta por él.'],
+      ] },
+      { spr: 'monk', name: ['Monk Dot', 'Monje Punto'], say: [
+        ['The wise one repeats... the wise one repeats... the wise one presses dot.', 'El sabio repite... el sabio repite... el sabio pulsa punto.'],
+      ] },
+    ],
+    npcs: [
+      { spr: 'sailor', name: ['Sailor', 'Marinera'], say: [
+        ['The tide took my boat. Now I hop: from the beach, fo lands on the first island, ; on the next.', 'La marea se llevó mi barca. Ahora salto: desde la playa, fo cae en la primera isla, ; en la siguiente.'],
+      ] },
+      { spr: 'fisher', name: ['Old Fisher', 'Viejo Pescador'], say: [
+        ['Out past the pier there are three little islands. Somebody lives on the far one, they say.', 'Más allá del muelle hay tres islitas. Dicen que alguien vive en la más lejana.'],
+      ] },
+    ],
+    lore: [
+      { spr: 'keeper', name: ['Tide Watcher Noa', 'Vigía Noa'], title: ['The Shifting Tide', 'La marea cambiante'], fact: ['This coast was once the Spelling Sea. When Clive clicked it, the waves began to swap letters, and the shore never kept its shape again.', 'Esta costa fue el Mar de la Ortografía. Cuando Clive hizo clic en él, las olas empezaron a cambiar letras y la orilla nunca volvió a tener su forma.'] },
+      { spr: 'bard', name: ['Pearl Diver Gus', 'Buzo Gus'], title: ['The Clipboard Pearl', 'La perla del portapapeles'], fact: ['Teacher Yank keeps a pearl that remembers the last thing you yanked. Clive tried to steal it to copy himself. The Clicker Clones came from that day.', 'La Maestra Yank guarda una perla que recuerda lo último que copiaste. Clive intentó robarla para copiarse a sí mismo. Los Clones de Clicker nacieron ese día.'] },
+    ],
+  },
+  {
+    name: ['Chapter VII — Dr. Clicker\'s Tower', 'Capítulo VII — La Torre del Dr. Clicker'], ground: { kind: 'tiles', ramp: ['#1f1b2e', '#2e2944', '#423b5e', '#655d88'] }, wall: 'brick', roamer: 'pointer',
     intro: [
       ['', '', ['FINAL STAGE. At the top of the Tower of Objects, DR. CLICKER waits on his throne of mouse pads, finger on the button. His living pointers patrol every floor.',
         'NIVEL FINAL. En lo alto de la Torre de los Objetos, el DR. CLICKER espera en su trono de alfombrillas, con el dedo en el botón. Sus punteros vivientes patrullan cada piso.']],
-      ['hero', '', ['Five floors, five guardians. Everything I\'ve learned, I\'ll need here. No continues.', 'Cinco pisos, cinco guardianes. Todo lo que aprendí lo necesitaré aquí. Sin continues.']],
+      ['hero', '', ['Five floors. Three echoes of my old teachers test me, then Dr. Clicker himself. Everything I\'ve learned, I\'ll need here.', 'Cinco pisos. Tres ecos de mis viejos maestros me ponen a prueba, y luego el propio Dr. Clicker. Todo lo que aprendí lo necesitaré aquí.']],
     ],
-    map: MAPS[4],
-    levels: ['inside', 'replace', 'yank', 'dot', 'boss'],
+    map: MAPS[6],
+    levels: ['recap1', 'recap2', 'recap3', 'boss'],
     sages: [
-      { spr: 'witch', name: ['Witch Inna', 'Bruja Inna'], say: [['Words, quotes, parentheses... everything is an object, little cursor. Strike from the inside.', 'Palabras, comillas, paréntesis... todo es un objeto, pequeño cursor. Ataca desde dentro.']] },
-      { spr: 'captain', name: ['Captain Tilde', 'Capitán Tilde'], say: [['SHOUTING or whispering, I decide! And I fix a letter without ever entering insert mode.', '¡GRITAR o susurrar, yo decido! Y arreglo una letra sin entrar nunca en modo insertar.']] },
-      { spr: 'teacher', name: ['Teacher Yank', 'Maestra Yank'], say: [['Never type the same thing twice. Copy it. Vim calls it yanking. Don\'t ask why.', 'Nunca escribas lo mismo dos veces. Cópialo. Vim lo llama "yank". No preguntes por qué.']] },
-      { spr: 'monk', name: ['Monk Dot', 'Monje Punto'], say: [['The wise one repeats... the wise one repeats... the wise one presses dot.', 'El sabio repite... el sabio repite... el sabio pulsa punto.']] },
+      { spr: 'elder', name: ['Echo of Elder Hjkl', 'Eco del Anciano Hjkl'], say: [
+        ['Remember the first lesson? Every gap wants its own leap: a word, an edge, a count, a find. Show me you still know them all.', '¿Recuerdas la primera lección? Cada hueco pide su propio salto: una palabra, un borde, una cuenta, una búsqueda. Demuéstrame que aún los conoces todos.'],
+      ] },
+      { spr: 'fairy', name: ['Echo of Fairy Xie', 'Eco del Hada Xie'], say: [
+        ['Typos, gaps, lines, operators. The Drag Smear mixes them all. Fix each line with the spell it asks for.', 'Erratas, huecos, líneas, operadores. La Mancha de Arrastre los mezcla todos. Arregla cada línea con el hechizo que pide.'],
+      ] },
+      { spr: 'witch', name: ['Echo of Witch Inna', 'Eco de la Bruja Inna'], say: [
+        ['The clones copy everything. Answer with objects, yanks and the dot.', 'Los clones lo copian todo. Responde con objetos, copias y el punto.'],
+      ] },
       { spr: 'king', name: ['Ghost of King Bram', 'Fantasma del Rey Bram'], say: [
         ['I ruled Textoria before the curse. Dr. Clicker waits beyond this door.', 'Goberné Textoria antes de la maldición. El Dr. Clicker espera tras esta puerta.'],
         ['He will throw every trick at you, round after round. You have every spell you need. Use them all, PROMPT.', 'Te lanzará todos sus trucos, ronda tras ronda. Tienes todos los hechizos que necesitas. Úsalos todos, PROMPT.'],
@@ -404,6 +526,30 @@ const VILLAGE_MAPS: string[][] = [
   ],
   [
     '##############################',
+    '#H  (   Y   H   Y   )   H   Y#',
+    '#   &      &        &        #',
+    '#  ......................... #',
+    '#  .  [  Y   F   Y  ]      . #',
+    '#@ .                       .>#',
+    '#  .  &   $   {  }  $   &  . #',
+    '#  ......................... #',
+    '#Y   H   (   Y   )   H   Y  H#',
+    '##############################',
+  ],
+  [
+    '##############################',
+    '#~~~~~~~~~~~~~~~~~~~~~~~~~~~~#',
+    '#~~ Y  ~~~~~  H  ~~~~~  Y  ~~#',
+    '#  &     &    F    &       & #',
+    '#  ......................... #',
+    '#@ .  Y   $        $   Y   .>#',
+    '#  .........................~#',
+    '#  ~~~  &   ~~~~~~   ~~~   ~~#',
+    '#H  Y   H   Y    H   Y   H  Y#',
+    '##############################',
+  ],
+  [
+    '##############################',
     '#Y H Y H Y H Y H Y H Y H Y H #',
     '#   &     &      &           #',
     '#  ......................... #',
@@ -452,7 +598,19 @@ const VILLAGES: Chapter[] = [
     { spr: 'dwarf', name: ['Gem Seller', 'Vendedor de Gemas'], say: [['Glowstones! Fresh glowstones! Free for heroes, since they don\'t do anything!', '¡Piedraluz! ¡Piedraluz fresquita! Gratis para héroes, porque no sirven para nada.']] },
     { spr: 'hermit', name: ['Hermit', 'Ermitaño'], say: [['I came up from the dark for the party. Too bright. Love it.', 'Subí de la oscuridad para la fiesta. Demasiada luz. Me encanta.']] },
   ]),
-  party(['Victory Parade', 'Desfile de la Victoria'], { kind: 'tiles', ramp: ['#5a3a7a', '#7a52a0', '#a07ac8', '#d2b0f0'] }, 'bush', VILLAGE_MAPS[4], [
+  party(['Bracket Bazaar', 'Bazar de los Corchetes'], { kind: 'tiles', ramp: ['#6b5638', '#8f7748', '#c9a96e', '#e6cf9a'] }, 'brick', VILLAGE_MAPS[4], [
+    ['', '', ['With the Husk Mummy unwrapped, the Ruins open a bazaar. Every stall comes in a matching pair, of course.', 'Con la Momia Envuelta desenvuelta, las Ruinas abren un bazar. Cada puesto viene con su pareja, claro.']], NEXT,
+  ], [
+    { spr: 'scribe', name: ['Pair Seller', 'Vendedora de Parejas'], say: [['Brackets! Two for the price of one, because one alone is a syntax error.', '¡Corchetes! Dos por el precio de uno, porque uno solo es un error de sintaxis.']] },
+    { spr: 'kid', name: ['Ruin Kid', 'Niña de las Ruinas'], say: [['I did daw on my homework and the whole word vanished. Teacher was NOT impressed.', 'Hice daw en mis deberes y la palabra desapareció entera. La maestra NO quedó impresionada.']] },
+  ]),
+  party(['Tide Festival', 'Fiesta de la Marea'], { kind: 'grass', ramp: ['#c2a36b', '#dcc28a', '#f0dfae', '#fff3cf'], water: ['#1d4f6b', '#2a6f97', '#4f9cc4', '#a6dcef'] }, 'oak', VILLAGE_MAPS[5], [
+    ['', '', ['The Clicker Clones are gone and the waves keep their letters again. The coast throws a beach festival!', 'Los Clones de Clicker se fueron y las olas vuelven a guardar sus letras. ¡La costa celebra una fiesta en la playa!']], NEXT,
+  ], [
+    { spr: 'fisher', name: ['Fisher Mo', 'Pescador Mo'], say: [['I caught a fish, yanked it, and pasted it twice. Now I have three fish. Don\'t tell the sea.', 'Pesqué un pez, lo copié y lo pegué dos veces. Ahora tengo tres. No se lo digas al mar.']] },
+    { spr: 'sailor', name: ['Deckhand Tess', 'Grumete Tess'], say: [['Watch: r fixes one letter, . fixes the next. The tide does it all day now.', 'Mira: r arregla una letra, . arregla la siguiente. La marea lo hace todo el día ahora.']] },
+  ]),
+  party(['Victory Parade', 'Desfile de la Victoria'], { kind: 'tiles', ramp: ['#5a3a7a', '#7a52a0', '#a07ac8', '#d2b0f0'] }, 'bush', VILLAGE_MAPS[6], [
     ['', '', ['Dr. Clicker is gone! All of Textoria comes out for the biggest parade the 8-bit kingdom has ever seen.', '¡El Dr. Clicker ya no está! Toda Textoria sale al desfile más grande que el reino de 8 bits ha visto jamás.']],
     ['hero', '', ['A party just for me? Time to wear my best hat.', '¿Una fiesta solo para mí? Hora de ponerme mi mejor sombrero.']],
   ], [
@@ -487,10 +645,14 @@ const MONSTERS: Record<SpellId, Monster> = {
   delete: { spr: 'spiderBoss', name: ['Bloat Spider', 'Araña Relleno'], taunt: ['More lines! More words! Very very very many words!', '¡Más líneas! ¡Más palabras! ¡Muchas muchas muchas palabras!'] },
   motions: { spr: 'scorpionBoss', name: ['Debug Scorpion', 'Escorpión Depurador'], taunt: ['console.log everywhere! Leave my TODOs alone!', '¡console.log por todas partes! ¡Deja mis TODOs en paz!'] },
   change: { spr: 'crabBoss', name: ['Mimic Crab', 'Cangrejo Mímico'], taunt: ['Click clack! I swapped your words for cats and dogs!', '¡Clic clac! ¡Cambié tus palabras por gatos y perros!'] },
+  around: { spr: 'mummy', name: ['Husk Mummy', 'Momia Envuelta'], taunt: ['Mmmmph! Wrapped in (layers) and [layers] and (more layers)... you\'ll never unwrap me!', '¡Mmmmf! Envuelto en (capas) y [capas] y (más capas)... ¡nunca me desenvolverás!'] },
   inside: { spr: 'ghostBoss', name: ['Bracket Ghost', 'Fantasma Corchete'], taunt: ['Boooo... I live inside the quotes and parentheses...', 'Buuuu... vivo dentro de las comillas y los paréntesis...'] },
   replace: { spr: 'wolfBoss', name: ['Caps Wolf', 'Lobo Mayúsculo'], taunt: ['AWOOO! i Mess Up yOuR cApItAlS!', '¡AUUU! ¡mE cOmO tUs MaYúScUlAs!'] },
   yank: { spr: 'catBoss', name: ['Copy Cat', 'Gato Copión'], taunt: ['Meow. Hip... hooray? You\'re missing a hip.', 'Miau. ¿Hip... hurra? Te falta un hip.'] },
   dot: { spr: 'owlBoss', name: ['Echo Owl', 'Búho Eco'], taunt: ['Foo! foo! foo! foo! Can you change them all?', '¡Foo! ¡foo! ¡foo! ¡foo! ¿Puedes cambiarlos todos?'] },
+  recap1: { spr: 'swarmBoss', name: ['Click Swarm', 'Enjambre de Clics'], taunt: ['Click click click! A thousand pointers, a thousand gaps. Can your leaps keep up?', '¡Clic clic clic! Mil punteros, mil huecos. ¿Tus saltos pueden seguir el ritmo?'] },
+  recap2: { spr: 'smearBoss', name: ['Drag Smear', 'Mancha de Arrastre'], taunt: ['Sluuurp. I dragged every line through the mud. Typos, gaps, junk: all mine.', 'Sluuurp. Arrastré cada línea por el barro. Erratas, huecos, basura: todo mío.'] },
+  recap3: { spr: 'cloneBoss', name: ['Clicker Clone', 'Clon de Clicker'], taunt: ['I am Dr. Clicker! No, I am! We were copy-pasted. Ctrl-C, Ctrl-V, forever!', '¡Soy el Dr. Clicker! ¡No, yo! Nos copiaron y pegaron. ¡Ctrl-C, Ctrl-V, para siempre!'] },
   boss: { spr: 'clicker', name: ['DR. CLICKER', 'DR. CLICKER'], taunt: [
     'MWAHAHA! So the little blinking cursor learned to type. I mangled every line in my tower. You\'ll never fix them all! CLICK CLICK CLICK!',
     '¡MUAJAJA! Así que el cursorcito aprendió a escribir. Destrocé cada línea de mi torre. ¡Nunca las arreglarás todas! ¡CLIC CLIC CLIC!'] },
@@ -499,7 +661,8 @@ const MONSTERS: Record<SpellId, Monster> = {
 // roaming monsters (chapter.roamer sprites) by name
 const ROAMERS: Record<string, Tx> = {
   rat: ['Sewer Rat', 'Rata de Cloaca'], boar: ['Wild Boar', 'Jabalí Salvaje'], mosquito: ['Swamp Mosquito', 'Mosquito del Pantano'],
-  bat: ['Cave Bat', 'Murciélago de Cueva'], pointer: ['Living Pointer', 'Puntero Viviente'],
+  bat: ['Cave Bat', 'Murciélago de Cueva'], ghost: ['Wandering Ghost', 'Fantasma Errante'], crab: ['Beach Crab', 'Cangrejo de Playa'],
+  pointer: ['Living Pointer', 'Puntero Viviente'],
 };
 
 const ENDING: Line[] = [

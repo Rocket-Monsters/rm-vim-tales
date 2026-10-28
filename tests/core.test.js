@@ -22,6 +22,9 @@ assert.equal(t('a\nb\nc', 'jddp'), 'a\nc\nb');
 assert.equal(t('a-b-c-d', 't-;;D'), 'a-b-');
 assert.equal(t('one two three', 'wdaw'), 'one three');
 assert.equal(t('l1\nl2\nl3', 'jdG'), 'l1');
+assert.equal(t('a (b [c] d) e', 'f(%x'), 'a (b [c] d e', '% jumps to the matching bracket');
+assert.equal(t('f(\nx)', '%x'), 'f(\nx', '% matches across lines');
+assert.equal(t('go(a)(b) x', 'f)lda('), 'go(a) x');
 console.log(`ok: ${LEVELS.length} levels`);
 
 // gating: every handcrafted solution uses only spells learned so far
@@ -81,12 +84,13 @@ CHAPTERS.forEach((ch, ci) => {
     const w = new World(ch);
     w.roamers = [];
     const learned = new Set(['hjkl', ...prior, ...ch.levels.slice(0, learnedN)]);
-    w.lines.forEach((row, r) => w.lines[r] = row.replace(/[A-E|$%+]/g, t => ('$%+'.includes(t) ? (gone ? ' ' : t) : t === '|' || t.charCodeAt(0) - 65 < beaten ? ' ' : t)));
+    w.lines.forEach((row, r) => w.lines[r] = row.replace(/[A-E|$♥+]/g, t => ('$♥+'.includes(t) ? (gone ? ' ' : t) : t === '|' || t.charCodeAt(0) - 65 < beaten ? ' ' : t)));
     const base = [...w.lines];
     const moves = ['h', 'j', 'k', 'l'];
     if (learned.has('words')) moves.push('w', 'b', 'e');
     if (learned.has('edges')) moves.push('0', '^', '$');
     if (learned.has('counts')) { moves.push('gg', 'G'); for (let n = 2; n <= m.length; n++) moves.push(n + 'G'); }
+    if (learned.has('around')) moves.push('%');
     if (learned.has('find')) for (const t of new Set(base.join('').replace(/ /g, ''))) for (const f of 'fFtT') moves.push(f + t);
     const cells = new Set(sources.map(p => p + '')), q = [...sources], back = new Map();
     while (q.length) {
@@ -137,7 +141,7 @@ CHAPTERS.forEach((ch, ci) => {
   const all = reach(ch.levels.length, ch.levels.length);
   if (at('>')) assert(all.has(at('>') + ''), `${ch.name}: exit unreachable`);
   m.forEach((row, r) => [...row].forEach((t, c) => {
-    if ('$%+'.includes(t)) assert(all.has([r, c] + ''), `${ch.name}: item ${t} at ${r},${c} unreachable`);
+    if ('$♥+'.includes(t)) assert(all.has([r, c] + ''), `${ch.name}: item ${t} at ${r},${c} unreachable`);
     if (t === 'L') assert([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dr, dc]) => all.has([r + dr, c + dc] + '')), `${ch.name}: lore keeper at ${r},${c} unreachable`);
   }));
 });
