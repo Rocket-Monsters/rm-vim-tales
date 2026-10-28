@@ -18,7 +18,7 @@ export function fingers(key) {
 }
 
 export const LESSONS_ES = {
-  hjkl: ['Modos y primeros pasos', 'vim tiene dos modos. En modo NORMAL cada tecla es un comando: h j k l mueven el cursor. i cambia al modo INSERTAR, donde las teclas escriben, y Esc te devuelve a NORMAL. Camina a cada hueco, pulsa i, escribe la letra que falta y luego Esc.', ['izquierda', 'abajo', 'arriba', 'derecha', 'modo insertar', 'modo normal']],
+  hjkl: ['Modos y primeros pasos', 'vim tiene dos modos. En modo NORMAL cada tecla es un comando: h j k l mueven el cursor. i cambia al modo INSERTAR, donde las teclas escriben, y Esc te devuelve a NORMAL. Camina a cada hueco, pulsa i, escribe la letra que falta y luego Esc. ¿Te equivocaste? u lo deshace, y funciona todo el juego.', ['izquierda', 'abajo', 'arriba', 'derecha', 'modo insertar', 'modo normal', 'deshacer']],
   words: ['Saltar palabras', 'w salta al inicio de la siguiente palabra, b vuelve al inicio de la anterior, e va al final de una palabra. Faltan letras cerca de los bordes de las palabras: salta hasta allí y luego i.', ['siguiente palabra', 'palabra anterior', 'fin de palabra']],
   edges: ['Los bordes del mundo', '0 va al principio de la línea, ^ al primer carácter que no es espacio, $ al final. Los huecos están en los bordes.', ['inicio de línea', 'primer no-blanco', 'fin de línea']],
   counts: ['Saltos y cuentas', 'Pon un número antes de un movimiento para repetirlo: 5k sube 5 líneas. G salta a la última línea, gg a la primera, y 7G / 7gg a la línea 7.', ['última línea', 'primera línea', 'cuenta + movimiento', 'ir a la línea 3']],
@@ -32,7 +32,7 @@ export const LESSONS_ES = {
   inside: ['Por dentro', 'Objetos de texto: tras un operador, i{obj} significa "dentro" y a{obj} "alrededor". ciw cambia la palabra bajo el cursor estés donde estés, ci" cambia dentro de comillas, ci( dentro de paréntesis.', ['cambiar palabra interior', 'cambiar entre comillas', 'cambiar entre paréntesis', 'borrar con paréntesis']],
   replace: ['Cambiaformas', 'r{car} reemplaza un carácter sin entrar en modo insertar. ~ alterna mayúsculas/minúsculas y avanza.', ['reemplazar carácter', 'alternar mayúsculas']],
   yank: ['Copión', 'y copia ("yank") con cualquier movimiento: yw una palabra, yy una línea. p pega después del cursor (o debajo si son líneas), P pega antes. Todo lo que borras también se puede pegar.', ['copiar palabra', 'copiar línea', 'pegar después', 'pegar antes']],
-  dot: ['Ecos', '. repite tu último cambio: la tecla más poderosa de vim. Cambia un foo, salta al siguiente y pulsa . — ¿te equivocaste? u deshace.', ['repetir cambio', 'deshacer']],
+  dot: ['Ecos', '. repite tu último cambio: la tecla más poderosa de vim. Cambia un foo, salta al siguiente y pulsa . — y u sigue deshaciendo.', ['repetir cambio']],
   boss: ['Jefe: la refactorización', 'Todo lo que sabes. Renombra la función, añade un parámetro, arregla la cuenta, elimina el código muerto.', ['', '', '', '', '']],
 };
 
@@ -50,6 +50,14 @@ export const UI = {
     idxPlay: m => `Enter: fight ${m} again for ★★★`, idxLocked: m => `Defeat ${m} to unlock replays.`,
     dojo: '◆ Key Dojo', dojoSub: best => `mini-game: zap Dr. Clicker's mice with keys · best ${best}`,
     nameQ: "What is your hero's name?", nameHelp: 'type a name · Enter confirm · Esc back', chooseLevel: n => `Choose your level, ${n}`,
+    helpTitle: 'Help',
+    travelTitle: 'TRAVEL  ·  where to?', travelHelp: 'j/k choose · Enter travel · Esc stay', here: '◀ you are here',
+    shopTitle: g => `TILLY'S BOUTIQUE  ·  ${g} gold`, shopHelp: 'j/k choose · Enter buy / wear / take off · Esc leave',
+    price: p => `${p} gold`, owned: 'owned', worn: '✓ wearing', poor: n => `You need ${n} more gold. Open chests, beat roamers, or play the games!`,
+    chestTitle: g => `CHESTER'S CHEST GAME  ·  ${g} gold`, chestHelp: (bet, win) => `h/l pick a chest · Enter open (${bet} gold, win ${win}) · Esc leave`,
+    chestWin: n => `JACKPOT! +${n} gold! Hee hee!  ·  Enter: again`, chestLose: 'A rat! Better luck next time.  ·  Enter: again',
+    dojoGold: n => `+${n} gold from Sensei Kip`,
+    qVillage: exit => `enjoy the festival! Tilly sells costumes, Kip and Chester run games.${exit ? ' The portal leads to the next chapter.' : ''} :travel goes back to earlier maps.`,
     textQ: 'What text do you want to fight with?', langsQ: 'Pick one or more languages',
     textKind: { plain: ['Plain text', 'famous quotes, downloaded fresh'], code: ['Code', 'real snippets: C#, C++, PHP, TypeScript, JS, Python, Rust'] },
     langsHelp: 'j/k choose · Space tick · Enter start · Esc back', loading: 'Downloading text…',
@@ -98,7 +106,7 @@ export const UI = {
     battleHelp: ':hint ask the sage (−5 HP) · :e! restart round · :q flee',
     help: [
       [':help', 'Commands start with : and run with Enter (Esc cancels). :help {key or spell} explains a spell you learned, e.g. :help w or :help find'],
-      ['Exploring', ':quest what to do next · :spells your spellbook · :stats your hero · :back return to the last sage (also Ctrl-o) · :train {spell} fight a beaten monster again · :lessons every lesson and its commands'],
+      ['Exploring', ':quest what to do next · :travel go back to any chapter or village you\'ve visited · :spells your spellbook · :stats your hero · :back return to the last sage (also Ctrl-o) · :train {spell} fight a beaten monster again · :lessons every lesson and its commands'],
       ['In battle', ':hint the sage shows a solution (−5 HP) · :e! restart the round · :q flee'],
       ['Settings', ':name {name} rename your hero · :level easy|normal|hard difficulty · :lang en|es language · :tutorial [spell] replay a key lesson · :dojo Key Dojo mini-game · :menu title screen'],
       ['Saving', 'The game saves itself after every move. :w saves anyway · :new! starts a new game'],
@@ -134,6 +142,14 @@ export const UI = {
     idxPlay: m => `Enter: vuelve a luchar con ${m} por ★★★`, idxLocked: m => `Derrota a ${m} para poder repetir.`,
     dojo: '◆ Dojo de Teclas', dojoSub: best => `minijuego: fulmina a los ratones del Dr. Clicker con teclas · récord ${best}`,
     nameQ: '¿Cómo se llama tu héroe?', nameHelp: 'escribe un nombre · Enter confirmar · Esc volver', chooseLevel: n => `Elige tu nivel, ${n}`,
+    helpTitle: 'Ayuda',
+    travelTitle: 'VIAJAR  ·  ¿adónde?', travelHelp: 'j/k elegir · Enter viajar · Esc quedarse', here: '◀ estás aquí',
+    shopTitle: g => `BOUTIQUE DE TILLY  ·  ${g} de oro`, shopHelp: 'j/k elegir · Enter comprar / poner / quitar · Esc salir',
+    price: p => `${p} de oro`, owned: 'tuyo', worn: '✓ puesto', poor: n => `Te faltan ${n} de oro. ¡Abre cofres, vence monstruos o juega!`,
+    chestTitle: g => `EL JUEGO DE COFRES DE CHESTER  ·  ${g} de oro`, chestHelp: (bet, win) => `h/l elegir cofre · Enter abrir (${bet} de oro, ganas ${win}) · Esc salir`,
+    chestWin: n => `¡PREMIO! ¡+${n} de oro! ¡Ji ji!  ·  Enter: otra vez`, chestLose: '¡Una rata! Más suerte la próxima.  ·  Enter: otra vez',
+    dojoGold: n => `+${n} de oro del Sensei Kip`,
+    qVillage: exit => `¡disfruta la fiesta! Tilly vende disfraces, Kip y Chester tienen juegos.${exit ? ' El portal lleva al siguiente capítulo.' : ''} :travel vuelve a mapas anteriores.`,
     textQ: '¿Con qué texto quieres luchar?', langsQ: 'Elige uno o más lenguajes',
     textKind: { plain: ['Texto normal', 'citas famosas (en inglés), descargadas al momento'], code: ['Código', 'fragmentos reales: C#, C++, PHP, TypeScript, JS, Python, Rust'] },
     langsHelp: 'j/k elegir · Espacio marcar · Enter empezar · Esc volver', loading: 'Descargando texto…',
@@ -182,7 +198,7 @@ export const UI = {
     battleHelp: ':hint pide ayuda al sabio (−5 PV) · :e! reinicia la ronda · :q huir',
     help: [
       [':help', 'Los comandos empiezan con : y se ejecutan con Enter (Esc cancela). :help {tecla o hechizo} explica un hechizo aprendido, p. ej. :help w o :help find'],
-      ['Explorar', ':quest qué hacer ahora · :spells tu libro de hechizos · :stats tu héroe · :back volver al último sabio (también Ctrl-o) · :train {hechizo} volver a luchar con un monstruo vencido · :lessons todas las lecciones y sus comandos'],
+      ['Explorar', ':quest qué hacer ahora · :travel vuelve a cualquier capítulo o aldea que visitaste · :spells tu libro de hechizos · :stats tu héroe · :back volver al último sabio (también Ctrl-o) · :train {hechizo} volver a luchar con un monstruo vencido · :lessons todas las lecciones y sus comandos'],
       ['En batalla', ':hint el sabio muestra una solución (−5 PV) · :e! reinicia la ronda · :q huir'],
       ['Ajustes', ':name {nombre} renombra a tu héroe · :level easy|normal|hard dificultad · :lang en|es idioma · :tutorial [hechizo] repite una lección · :dojo minijuego Dojo de Teclas · :menu pantalla de título'],
       ['Guardar', 'El juego se guarda solo tras cada movimiento. :w guarda de todos modos · :new! empieza una partida nueva'],

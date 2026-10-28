@@ -2,8 +2,8 @@
 // ponytail: imperative DOM updates by id; move state into Solid signals component by component.
 import { Run, LEVELS, stars, locked } from '../core/engine.ts';
 import { World, makeRound, useText, rng, pick as pickR, roundSecs, LV as LV_EN, ROUNDS, BOSS_ROUNDS, FIGHTS } from '../core/game.ts';
-import { CHAPTERS, MONSTERS, ROAMERS, ENDING } from '../core/story.ts';
-import { sprite, groundTiles, NAMES } from '../core/sprites.ts';
+import { CHAPTERS, VILLAGES, ITEMS, MONSTERS, ROAMERS, ENDING } from '../core/story.ts';
+import { sprite, outfit, groundTiles, NAMES } from '../core/sprites.ts';
 import { CODE_LANGS, download } from '../core/text.ts';
 import { UI, LESSONS_ES, fingers } from './i18n.js';
 
@@ -20,19 +20,24 @@ export function startGame() {
   css.textContent = NAMES.map(n => `.s-${n}{background-image:url("${sprite(n)}")}`).join('\n');
   // ground textures are generated per chapter (.g-f0 … .g-isle), swapped in when the chapter changes
   const groundCss = document.createElement('style');
-  document.head.append(css, groundCss);
+  // .s-hero is redrawn with the costumes the hero wears, so every hero picture shows them
+  const heroCss = document.createElement('style');
+  document.head.append(css, groundCss, heroCss);
+  let dressedAs = null;
   let groundOf = null;
   const img = (n, cls = '') => `<i class="spr s-${n} ${cls}"></i>`;
 
   // ---------- state ----------
   const browserLang = () => (navigator.language || '').startsWith('es') ? 'es' : 'en';
   const fresh = () => ({ ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false,
-    name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang(), text: null });
+    name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang(), text: null,
+    village: false, owned: [], wear: {}, maps: {} });
   let S = fresh();
   try { S = { ...S, ...JSON.parse(localStorage.getItem(SAVE)) }; } catch {}
   useText(S.text?.lines, S.text?.kind === 'code');
   let world, face = 1, B = null;
-  const CH = () => CHAPTERS[S.ch];
+  // after each chapter's exit comes its festival village (same index), then the next chapter
+  const CH = () => (S.village ? VILLAGES : CHAPTERS)[S.ch];
   const D_ = () => DIFF[S.diff] || DIFF.normal;
   const T = () => UI[S.lang] || UI.en;
   const tx = p => (p ? p[S.lang === 'es' ? 1 : 0] : '');
@@ -62,6 +67,8 @@ export function startGame() {
   // static labels in the markup
   function applyLang() {
     document.documentElement.lang = S.lang;
+    $('helpBtn').ariaLabel = T().helpTitle;
+    if (drawerOpen()) toggleDrawer(true);
     const set = { mTag1: T().tag1, mTag2: T().tag2, mHelp: T().menuHelp, wHelp: T().wizHelp, dHelp: T().dojoHelp, bYour: T().yourText, bGoalH: T().goal, bHelp: T().battleHelp };
     for (const id in set) $(id).textContent = set[id];
   }
@@ -101,6 +108,8 @@ export function startGame() {
     if (t === '.') return [rowsAround(r, c).includes('~') ? 'g-isle' : 'g-path' + (v & 1), ''];
     if (OBJ[t]) return [floor + (t === '>' ? ' portal' : ''), img(OBJ[t])];
     if (t === '&') return [floor, img(ch.npcs[world.npcAt[r + ',' + c]].spr)];
+    if (t === 'F') return [floor + ' fountain', img('fountain')];
+    if (t === 'Y') return [floor + ' balloon', img('balloons')];
     // a sage you haven't talked to yet shows a bouncing "!" over their head
     if (t >= 'a' && t <= 'e') { const i = t.charCodeAt(0) - 97; return [floor, img(ch.sages[i].spr) + (S.learned.includes(ch.levels[i]) ? '' : '<b class="talk">!</b>')]; }
     if (t >= 'A' && t <= 'E') return [floor + ' foe-tile', img(MONSTERS[ch.levels[t.charCodeAt(0) - 65]].spr)];
@@ -136,6 +145,9 @@ export function startGame() {
         h += `<div class="t ${cls}"${t === '~' ? shore(r, c) : ''}>${e}</div>`;
       });
     });
+    const wear = Object.values(S.wear).join('+');
+    if (wear !== dressedAs) { dressedAs = wear; heroCss.textContent = `.s-hero{background-image:url("${outfit(Object.values(S.wear))}")}`; }
+    $('view').parentElement.classList.toggle('fest', !!S.village);
     const map = $('map');
     map.style.setProperty('--floor', ch.ground.ramp[1]);
     map.style.gridTemplateColumns = `auto repeat(${rows[0].length}, var(--t))`;
@@ -204,7 +216,7 @@ export function startGame() {
       if (!S.learned.includes(id)) return say([taunt, hero(T().cantBeat)]);
       return say([taunt], () => startBattle(id, false));
     }
-    if (t === '&') { const n = ch.npcs[world.npcAt[r + ',' + c]]; return say(n.say.map(s => person(n, tx(s)))); }
+    if (t === '&') { const n = ch.npcs[world.npcAt[r + ',' + c]]; return say(n.say.map(s => person(n, tx(s))), n.act && (() => ACTS[n.act]())); }
     if (t === '|') {
       if (!S.keys) return note(T().locked);
       S.keys--; world.set(r, c, ' '); note(T().doorOpen);
@@ -212,14 +224,23 @@ export function startGame() {
     if (t === 'H') note(T().home);
   }
 
-  function nextChapter() {
-    if (S.ch + 1 >= CHAPTERS.length) return;
-    S.ch++; S.lines = null; S.pos = null; S.spawn = null;
+  // every map in story order: chapter 0, its village, chapter 1, ... A map keeps its state (chests taken, doors open) when you leave it
+  const STAGES = CHAPTERS.flatMap((_, ch) => [{ ch, village: false }, { ch, village: true }]);
+  const stageKey = (ch, village) => (village ? 'v' + ch : ch);
+  function goTo(ch, village) {
+    S.maps[stageKey(S.ch, S.village)] = [...world.lines];
+    S.ch = ch; S.village = village;
+    S.lines = S.maps[stageKey(ch, village)] || null; S.pos = null; S.spawn = null;
     loadWorld(); save(); draw(); intro();
   }
+  function nextChapter() {
+    if (!S.village) goTo(S.ch, true);
+    else if (S.ch + 1 < CHAPTERS.length) goTo(S.ch + 1, false);
+  }
   function intro() {
-    if (S.seen.includes(S.ch)) return;
-    S.seen.push(S.ch); save();
+    const key = stageKey(S.ch, S.village);
+    if (S.seen.includes(key)) return;
+    S.seen.push(key); save();
     say(story(CH().intro));
   }
 
@@ -260,7 +281,7 @@ export function startGame() {
     B.secs = roundSecs(B.lv.par, D_().pace, B.foe ? FIGHTS[B.foe.kind].time : 1);
     B.end = Date.now() + B.secs * 1000;
     const lv = LV[B.spell];
-    $('bKeys').innerHTML = lv.keys.map(([k, d]) => `<span><kbd>${esc(k)}</kbd> ${esc(d)}</span>`).join('');
+    $('bKeys').innerHTML = [...lv.keys.filter(([k]) => k !== 'u'), ['u', LV.hjkl.keys.at(-1)[1]]].map(([k, d]) => `<span><kbd>${esc(k)}</kbd> ${esc(d)}</span>`).join('');
     $('bLearn').textContent = lv.learn;
     renderBattle();
   }
@@ -322,7 +343,8 @@ export function startGame() {
     if (first) lines.push(hero(T().grew(level())));
     if (id === 'boss' && first) { S.done = true; lines.push(...story(ENDING)); }
     save(); draw();
-    say(lines, draw);
+    // beating Dr. Clicker the first time ends in the Victory Parade
+    say(lines, id === 'boss' && first ? nextChapter : draw);
   }
   // indices of a's chars left out of a longest common subsequence with b: what b is missing
   function unmatched(a = '', b = '') {
@@ -377,6 +399,7 @@ export function startGame() {
   }
   const findSpell = a => LEVELS.find(l => l.id === a || LV[l.id].title.toLowerCase().includes(a.toLowerCase()) || l.keys.some(([k]) => k.split(' ').includes(a)));
   function quest() {
+    if (S.village) return say([[tx(CH().name), T().qVillage(!!world.find('>')), 'hero']]);
     const ch = CH(), gate = i => world.find(String.fromCharCode(65 + i));
     let next = null;
     ch.levels.forEach((id, i) => {
@@ -396,7 +419,7 @@ export function startGame() {
     switch (name) {
       case '': return;
       case 'h': case 'help': {
-        if (!arg) return say(T().help.map(([h, t]) => [h, t, 'elder']));
+        if (!arg) return toggleDrawer(true);
         const lv = findSpell(arg);
         if (!lv || !S.learned.includes(lv.id)) return err(T().noHelp(arg));
         const l = LV[lv.id];
@@ -446,6 +469,7 @@ export function startGame() {
         return wizard(spellCards(lv.id));
       }
       case 'dojo': return notInBattle() || startDojo();
+      case 'travel': case 'tr': return notInBattle() || openBooth('travel');
       case 'lessons': case 'index': case 'ls': return notInBattle() || openIndex();
       case 'menu': return notInBattle() || showMenu();
       case 'w': save(); return showCmd(T().written);
@@ -584,10 +608,11 @@ export function startGame() {
   // ---------- Key Dojo mini-game: type the key on each mouse before time runs out ----------
   const DOJO_MS = 30000;
   let D = null;
-  function startDojo() {
+  // paid: played at Sensei Kip's in a village, one gold per mouse
+  function startDojo(paid = false) {
     const pool = LEVELS.filter(l => l.id === 'hjkl' || S.learned.includes(l.id)).flatMap(l => LV[l.id].keys).filter(([k]) => want(k) && !want(k).startsWith('<'));
     clearInterval(D?.timer);
-    D = { pool, score: 0, buf: '', end: Date.now() + DOJO_MS, timer: setInterval(tickDojo, 100) };
+    D = { pool, paid, score: 0, buf: '', end: Date.now() + DOJO_MS, timer: setInterval(tickDojo, 100) };
     $('dojo').hidden = false; nextMouse();
   }
   function nextMouse() {
@@ -608,12 +633,14 @@ export function startGame() {
     $('dTime').style.width = Math.max(0, left / DOJO_MS) * 100 + '%';
     if (left > 0) return;
     clearInterval(D.timer); D.over = true;
-    const best = D.score > S.dojo; S.dojo = Math.max(S.dojo, D.score); save();
-    renderDojo(T().dojoOver(D.score, best));
+    const best = D.score > S.dojo; S.dojo = Math.max(S.dojo, D.score);
+    if (D.paid) S.gold += D.score;
+    save();
+    renderDojo(T().dojoOver(D.score, best) + (D.paid ? '  ·  ' + T().dojoGold(D.score) : ''));
   }
   function dojoKey(k) {
-    if (k === '<Esc>') { clearInterval(D.timer); clearInterval(handTimer); D = null; $('dojo').hidden = true; return M && renderMenu(); }
-    if (D.over) return k === '<CR>' && startDojo();
+    if (k === '<Esc>') { clearInterval(D.timer); clearInterval(handTimer); D = null; $('dojo').hidden = true; return M ? renderMenu() : hud(); }
+    if (D.over) return k === '<CR>' && startDojo(D.paid);
     if (k.length !== 1) return;
     const t = want(D.cur[0]);
     D.buf += k;
@@ -621,6 +648,67 @@ export function startGame() {
     if (!t.startsWith(D.buf)) D.buf = '';
     renderDojo();
   }
+
+  // ---------- village booths: Tilly's costume shop and Chester's chest game ----------
+  const ITEM_IDS = Object.keys(ITEMS), CHEST_BET = 5, CHEST_WIN = 15;
+  let Bo = null;
+  const visited = () => STAGES.filter(st => S.seen.includes(stageKey(st.ch, st.village)));
+  function openBooth(kind) {
+    Bo = { kind, i: kind === 'chest' ? 1 : kind === 'travel' ? Math.max(0, visited().findIndex(st => st.ch === S.ch && st.village === !!S.village)) : 0, open: null };
+    $('booth').hidden = false; renderBooth();
+  }
+  function closeBooth() { Bo = null; $('booth').hidden = true; draw(); }
+  function renderBooth(msg) {
+    if (Bo.kind === 'travel') {
+      $('boTitle').textContent = T().travelTitle;
+      $('boBody').innerHTML = visited().map((st, i) => `<div class="opt${i === Bo.i ? ' sel' : ''}">${esc(tx((st.village ? VILLAGES : CHAPTERS)[st.ch].name))}${
+        st.ch === S.ch && st.village === !!S.village ? `<small>${esc(T().here)}</small>` : ''}</div>`).join('');
+    } else if (Bo.kind === 'shop') {
+      $('boTitle').textContent = T().shopTitle(S.gold);
+      $('boBody').innerHTML = `<div class="preview">${img('hero')}</div>` + ITEM_IDS.map((id, i) => {
+        const it = ITEMS[id], tag = S.wear[it.slot] === id ? T().worn : S.owned.includes(id) ? T().owned : T().price(it.price);
+        return `<div class="opt item${i === Bo.i ? ' sel' : ''}">${img(id)}<span>${esc(tx(it.name))}</span><small>${esc(tag)}</small></div>`;
+      }).join('');
+    } else {
+      $('boTitle').textContent = T().chestTitle(S.gold);
+      $('boBody').innerHTML = `<div class="chests">${[0, 1, 2].map(i => `<div class="${i === Bo.i ? 'sel' : ''}">${
+        Bo.open == null ? img('chest') : i === Bo.prize ? img('chest') + `<b>+${CHEST_WIN}</b>` : img('rat')}</div>`).join('')}</div>`;
+    }
+    $('boHelp').textContent = msg || (Bo.kind === 'travel' ? T().travelHelp : Bo.kind === 'shop' ? T().shopHelp : T().chestHelp(CHEST_BET, CHEST_WIN));
+  }
+  function boothKey(k) {
+    if (k === '<Esc>' || k === 'q') return closeBooth();
+    if (Bo.kind === 'travel') {
+      const list = visited();
+      if (k === 'j' || k === 'k') { Bo.i = (Bo.i + (k === 'j' ? 1 : list.length - 1)) % list.length; return renderBooth(); }
+      if (k !== '<CR>' && k !== ' ') return;
+      const st = list[Bo.i];
+      closeBooth();
+      if (st.ch !== S.ch || st.village !== !!S.village) goTo(st.ch, st.village);
+      return showCmd('🧭 ' + tx((st.village ? VILLAGES : CHAPTERS)[st.ch].name));
+    }
+    if (Bo.kind === 'shop') {
+      if (k === 'j' || k === 'k') { Bo.i = (Bo.i + (k === 'j' ? 1 : ITEM_IDS.length - 1)) % ITEM_IDS.length; return renderBooth(); }
+      if (k !== '<CR>' && k !== ' ') return;
+      const id = ITEM_IDS[Bo.i], it = ITEMS[id];
+      if (!S.owned.includes(id)) {
+        if (S.gold < it.price) return renderBooth(T().poor(it.price - S.gold));
+        S.gold -= it.price; S.owned.push(id);
+      }
+      // buying puts it on; Enter on something you own takes it on or off
+      if (S.wear[it.slot] === id) delete S.wear[it.slot]; else S.wear[it.slot] = id;
+      save(); draw(); return renderBooth();
+    }
+    if (Bo.open != null) { if (k === '<CR>' || k === ' ') { Bo.open = null; renderBooth(); } return; }
+    if (k === 'h' || k === 'l') { Bo.i = Math.max(0, Math.min(2, Bo.i + (k === 'l' ? 1 : -1))); return renderBooth(); }
+    if (k !== '<CR>' && k !== ' ') return;
+    if (S.gold < CHEST_BET) return renderBooth(T().poor(CHEST_BET - S.gold));
+    Bo.open = Bo.i; Bo.prize = Math.floor(Math.random() * 3);
+    S.gold += Bo.prize === Bo.i ? CHEST_WIN - CHEST_BET : -CHEST_BET;
+    save(); hud();
+    renderBooth(Bo.prize === Bo.i ? T().chestWin(CHEST_WIN) : T().chestLose);
+  }
+  const ACTS = { shop: () => openBooth('shop'), chest: () => openBooth('chest'), dojo: () => startDojo(true) };
 
   // ---------- lesson index: every spell with its commands; replay any monster you've beaten ----------
   let I = null;
@@ -658,20 +746,35 @@ export function startGame() {
     startBattle(id, true);
   }
 
+  // ---------- help drawer: the :help text, opened from the ? button ----------
+  const drawerOpen = () => $('drawer').classList.contains('open');
+  function toggleDrawer(open = !drawerOpen()) {
+    $('drTitle').textContent = T().helpTitle;
+    $('drBody').innerHTML = T().help.map(([h, t]) => `<h4>${esc(h)}</h4><p>${esc(nm(t))}</p>`).join('');
+    $('drawer').classList.toggle('open', open);
+    $('drawer').inert = !open;
+    document.activeElement?.blur();
+  }
+  const onHelpBtn = () => toggleDrawer(), onDrClose = () => toggleDrawer(false);
+  $('helpBtn').addEventListener('click', onHelpBtn);
+  $('drClose').addEventListener('click', onDrClose);
+
   // ---------- input ----------
   function onKey(e) {
     if (e.metaKey || e.altKey) return;
     let k = e.key;
     if (e.ctrlKey) {
-      if (k === 'o' && !B && !M && !W && !D && $('dialog').hidden) { e.preventDefault(); world.place(S.spawn.r, S.spawn.c); note(T().back); save(); return draw(); }
+      if (k === 'o' && !B && !M && !W && !D && !Bo && $('dialog').hidden) { e.preventDefault(); world.place(S.spawn.r, S.spawn.c); note(T().back); save(); return draw(); }
       if (k === '[' || k === 'c') k = '<Esc>'; else return;
     } else if (k === 'Escape') k = '<Esc>';
     else if (k === 'Enter') k = '<CR>';
     else if (k === 'Backspace') k = '<BS>';
     else if (k.length !== 1 && !k.startsWith('Arrow')) return;
     e.preventDefault();
+    if (k === '<Esc>' && drawerOpen()) return toggleDrawer(false);
     if (cmd !== null) return cmdKey(k);
     if (D) return dojoKey(k);
+    if (Bo) return boothKey(k);
     if (I) return indexKey(k);
     if (M) return menuKey(k);
     if (W) return wizKey(k);
@@ -685,5 +788,5 @@ export function startGame() {
   document.addEventListener('keydown', onKey);
   $('mVs').innerHTML = `${img('hero')}<b>VS</b>${img('clicker', 'villain')}`;
   applyLang(); loadWorld(); draw(); showMenu();
-  return () => { document.removeEventListener('keydown', onKey); clearInterval(D?.timer); clearInterval(B?.timer); clearInterval(handTimer); css.remove(); };
+  return () => { document.removeEventListener('keydown', onKey); $('helpBtn').removeEventListener('click', onHelpBtn); $('drClose').removeEventListener('click', onDrClose); clearInterval(D?.timer); clearInterval(B?.timer); clearInterval(handTimer); css.remove(); };
 }
