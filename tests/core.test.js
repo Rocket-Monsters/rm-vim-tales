@@ -182,3 +182,32 @@ for (const lv of LEVELS) for (let seed = 1; seed <= 4; seed++) {
 }
 useText(null);
 console.log('ok: downloaded text rounds');
+
+// festival villages: one per chapter, no monsters, every villager/chest/exit reachable with h j k l alone
+import { VILLAGES, ITEMS } from '../src/core/story.ts';
+import { outfit } from '../src/core/sprites.ts';
+assert.equal(VILLAGES.length, CHAPTERS.length);
+VILLAGES.forEach((v, i) => {
+  const m = v.map, w = new World(v), hjkl = new Set(['hjkl']);
+  m.forEach((row, r) => assert.equal(row.length, m[0].length, `${v.name} row ${r} width`));
+  assert.equal(m.join('').split('&').length - 1, v.npcs.length, `${v.name} npc count`);
+  assert(!/[A-EMW]/.test(m.join('')) && !v.levels.length && !w.roamers.length, `${v.name} has monsters`);
+  assert.equal(m.join('').includes('>'), i < VILLAGES.length - 1, `${v.name}: exit only before the last chapter`);
+  const seen = new Set([w.r + ',' + w.c]), q = [[w.r, w.c]], near = new Set();
+  while (q.length) {
+    const [r, c] = q.pop();
+    for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      near.add(r + dr + ',' + (c + dc));
+      if (w.walkable(r + dr, c + dc) && !seen.has(r + dr + ',' + (c + dc))) { seen.add(r + dr + ',' + (c + dc)); q.push([r + dr, c + dc]); }
+    }
+  }
+  m.forEach((row, r) => [...row].forEach((t, c) => { if ('&$>'.includes(t)) assert(near.has(r + ',' + c), `${v.name}: ${t} at ${r},${c} unreachable`); }));
+  [v.wall, ...v.npcs.map(p => p.spr), 'fountain', 'balloons'].forEach(n => assert(NAMES.includes(n), `sprite ${n} missing`));
+});
+for (const id in ITEMS) assert(NAMES.includes(id), `costume sprite ${id} missing`);
+assert(outfit(['partyhat', 'flamesword', 'shell']).startsWith('data:image/svg+xml'));
+console.log(`ok: ${VILLAGES.length} villages, ${Object.keys(ITEMS).length} costumes`);
+
+// undo is innate: usable from the first battle on
+assert.equal(locked(new Vim('ab'), 'u', new Set(['hjkl'])), null, 'u must be unlocked from the start');
+{ const v = new Vim('ab'); v.key('x'); v.key('u'); assert.equal(v.text, 'ab', 'u undoes'); }

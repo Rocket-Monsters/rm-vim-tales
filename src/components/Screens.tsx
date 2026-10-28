@@ -31,6 +31,17 @@ export default function Screens() {
         </div>
         <p class="help" id="iHelp" />
       </div>
+      <aside id="drawer" class="win drawer" inert>
+        <div class="drawer-head"><h3 id="drTitle" /><button id="drClose" aria-label="Close">×</button></div>
+        <div id="drBody" />
+      </aside>
+      <div id="booth" class="screen" hidden>
+        <div class="win menu-box booth">
+          <h3 id="boTitle" />
+          <div id="boBody" />
+        </div>
+        <p class="help" id="boHelp" />
+      </div>
       <div id="dojo" class="screen" hidden>
         <div class="win wiz">
           <div id="dStat" />

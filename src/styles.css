@@ -3,6 +3,16 @@
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 var(--mono); min-height:100vh; }
   header { display:flex; flex-wrap:wrap; align-items:center; gap:18px; padding:10px 18px; background:var(--panel); border-bottom:1px solid var(--line); }
+  header { padding-right:64px; }
+  .help-btn { position:fixed; top:8px; right:14px; z-index:70; width:36px; height:36px; border-radius:50%; border:2px solid var(--acc); background:var(--panel); color:var(--acc); font:14px var(--pixel); cursor:pointer; }
+  .help-btn:hover, .help-btn:focus-visible { background:var(--acc); color:var(--panel); }
+  .drawer { position:fixed; top:0; right:0; bottom:0; z-index:80; width:min(380px, 100vw); margin:0; overflow:auto; border-radius:0; translate:100% 0; transition:translate .25s ease; }
+  .drawer.open { translate:0 0; }
+  .drawer-head { display:flex; justify-content:space-between; align-items:center; }
+  .drawer-head h3 { font:13px var(--pixel); margin:0; }
+  .drawer-head button { background:none; border:0; color:inherit; font-size:26px; cursor:pointer; }
+  .drawer h4 { font:11px var(--pixel); color:var(--acc); margin:18px 0 6px; }
+  .drawer p { margin:0; line-height:1.5; }
   header h1 { font:14px var(--pixel); color:var(--acc); margin:0; }
   #chap { font:11px var(--pixel); color:var(--gem); }
   .hud { display:flex; gap:16px; margin-left:auto; align-items:center; }
@@ -88,7 +98,23 @@
   .screen { position:fixed; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:safe center; gap:18px; padding:16px; overflow:auto;
             background:radial-gradient(ellipse at 50% 25%, #2b1f4a, #0c0f14 70%); }
   .screen[hidden], .bigkey[hidden] { display:none; }
-  #wizard, #dojo, #index { z-index:55; }
+  #wizard, #dojo, #index, #booth { z-index:55; }
+  .booth .preview { --t:72px; display:flex; justify-content:center; margin-bottom:8px; }
+  .booth .item { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px; --t:28px; }
+  .booth .item small { display:inline; }
+  .booth .chests { display:flex; justify-content:center; gap:24px; --t:64px; padding:12px 0; }
+  .booth .chests > div { display:grid; justify-items:center; padding:8px; border-radius:8px; border:2px solid transparent; }
+  .booth .chests > .sel { border-color:var(--gem); animation:bob .4s steps(2) infinite alternate; }
+  .booth .chests b { font:12px var(--pixel); color:var(--gem); }
+  .balloon .spr { animation:bob 1.2s ease-in-out infinite alternate; }
+  .fountain .spr { animation:bob .6s steps(2) infinite alternate; }
+  /* festival villages: confetti drifts over the map */
+  .fest::before { content:''; position:absolute; inset:0; pointer-events:none; z-index:3; opacity:.85;
+    background-image:radial-gradient(circle, #ff77a8 2px, transparent 3px), radial-gradient(circle, #ffec27 2px, transparent 3px), radial-gradient(circle, #29adff 2px, transparent 3px), radial-gradient(circle, #00e436 2px, transparent 3px);
+    background-size:90px 110px, 130px 90px, 70px 130px, 110px 70px; background-position:0 0, 40px 60px, 20px 30px, 60px 10px;
+    animation:confetti 7s linear infinite; }
+  @keyframes confetti { to { background-position:0 110px, 40px 150px, 20px 160px, 60px 80px; } }
+  @media (prefers-reduced-motion:reduce) { .fest::before, .balloon .spr, .fountain .spr { animation:none; } }
   .idx { width:min(980px, 100%); display:grid; grid-template-columns:minmax(200px, 280px) 1fr; max-height:calc(100vh - 80px); overflow:hidden; }
   .idx-list { overflow:auto; padding:12px 8px; border-right:2px solid #ffffff33; font:10px/2 var(--pixel); }
   .idx-list h4 { font:9px/1.6 var(--pixel); color:#aab4e8; margin:12px 8px 4px; }
