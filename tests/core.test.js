@@ -80,7 +80,8 @@ CHAPTERS.forEach((ch, ci) => {
   const prior = CHAPTERS.slice(0, ci).flatMap(c => c.levels);
   // all cells the hero can stand on, using the real movement rules (roamers off, doors open)
   // explore with the real movement rules (roamers off, doors open); gone = every item already collected
-  const explore = (learnedN, beaten, gone, sources, danger) => {
+  // only: use exactly these moves instead of every learned one
+  const explore = (learnedN, beaten, gone, sources, danger, only) => {
     const w = new World(ch);
     w.roamers = [];
     const learned = new Set(['hjkl', ...prior, ...ch.levels.slice(0, learnedN)]);
@@ -95,7 +96,7 @@ CHAPTERS.forEach((ch, ci) => {
     const cells = new Set(sources.map(p => p + '')), q = [...sources], back = new Map();
     while (q.length) {
       const [r, c] = q.pop();
-      for (const mv of moves) {
+      for (const mv of only || moves) {
         w.nav.lines = [...base]; w.place(r, c);
         for (const k of tokens(mv)) w.key(k, learned);
         const to = [w.r, w.c] + '';
@@ -138,6 +139,12 @@ CHAPTERS.forEach((ch, ci) => {
   });
   ch.levels.forEach((_, i) => assert(touches(explore(i + 1, i, false, [s0], danger).cells, String.fromCharCode(65 + i)), `${ch.name}: monster ${String.fromCharCode(65 + i)} only reachable by walking through a patrolled tunnel`));
   if (at('>')) assert(explore(ch.levels.length, ch.levels.length, false, [s0], danger).cells.has(at('>') + ''), `${ch.name}: exit only reachable through a patrolled tunnel`);
+  // lake mazes: reaching the target past the lake needs each of these keys (w and e both hop one stone)
+  const lake = { 0: ['B', ['j', 'k', 'b', 'we']], 5: ['B', ['j', 'b', 'we']], 6: ['b', ['k', 'b', 'we']] }[ci];
+  if (lake) for (const ks of lake[1]) {
+    const only = [...'hjklwbe'].filter(k => !ks.includes(k));
+    assert(!touches(explore(2, 1, false, [s0], null, only).cells, lake[0]), `${ch.name}: lake crossable without ${ks}`);
+  }
   const all = reach(ch.levels.length, ch.levels.length);
   if (at('>')) assert(all.has(at('>') + ''), `${ch.name}: exit unreachable`);
   m.forEach((row, r) => [...row].forEach((t, c) => {
