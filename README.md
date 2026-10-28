@@ -4,7 +4,9 @@ A retro RPG that teaches Vim. Walk the overworld Zelda-style with real Vim motio
 talk to sages to learn new commands, and fight Final-Fantasy-style battles where
 every spell is a Vim edit — the fewer keystrokes, the harder you hit.
 
-Five chapters, from `hjkl` to text objects, dot-repeat and registers.
+Seven chapters, from `hjkl` to text objects, dot-repeat and registers.
+
+![vim-tales gameplay: walk to a sage, learn h j k l i Esc, fix the text in a practice round](docs/gameplay.gif)
 
 ## Play
 
