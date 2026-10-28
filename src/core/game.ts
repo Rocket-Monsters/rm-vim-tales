@@ -62,7 +62,7 @@ class World {
     if (k === '<Esc>') { v.pending = ''; return ev; }
     const need = needs(cmd);
     const lock = !need.length && !/^[1-9]\d*$/.test(cmd) ? 'unknown'
-      : need.find(s => !MOVE_SPELLS.includes(s)) || cmd === 'i' ? 'battle' : need.find(s => !learned.has(s));
+      : need.find(s => !MOVE_SPELLS.includes(s)) || cmd === 'i' || cmd === 'u' ? 'battle' : need.find(s => !learned.has(s));
     if (lock) { v.pending = ''; ev.locked = lock; return ev; }
     const walk = cmd.match(/^([1-9]\d*)?([hjkl])$/);
     if (walk) {
