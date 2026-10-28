@@ -6,6 +6,7 @@
 //              & villager   a-e sage teaching chapter.levels[i]   A-E monster guarding that level's battle
 //              L  lore keeper: tells chapter.lore[i] (i = reading order) and adds it to the :lore journal
 //              M / W  roaming monster patrolling horizontally / vertically
+//              villages only:  F fountain  Y balloons  (blocked)
 // Sprite names (spr, wall, roamer) come from sprites.ts.
 import type { SpellId } from './engine.ts';
 import type { Ground } from './sprites.ts';
@@ -13,7 +14,8 @@ import type { Ground } from './sprites.ts';
 export type Tx = [en: string, es: string];
 // a story line: [sprite, speaker, text]. sprite 'hero' speaks with the player's name, '' is the narrator
 export type Line = [spr: string, who: Tx | '', text: Tx];
-export interface Person { spr: string; name: Tx; say: Tx[] }
+// act: what a village caravan member opens after talking
+export interface Person { spr: string; name: Tx; say: Tx[]; act?: 'shop' | 'dojo' | 'chest' }
 // a page of Textoria's history: collected once per save, read back with :lore (later: trivia, weapon unlocks)
 export interface Lore { spr: string; name: Tx; title: Tx; fact: Tx }
 export interface Chapter {
@@ -351,6 +353,128 @@ const CHAPTERS: Chapter[] = [
   },
 ];
 
+const VILLAGE_MAPS: string[][] = [
+  [
+    '##############################',
+    '#H   Y   H    Y    H    Y   H#',
+    '#  &        &         &      #',
+    '#  ......................... #',
+    '#  .  Y     ...F...    Y   . #',
+    '#@ .        .......        .>#',
+    '#  .   &    $     $    &   . #',
+    '#  ......................... #',
+    '#H    Y    H    Y    H    Y H#',
+    '##############################',
+  ],
+  [
+    '##############################',
+    '#H  Y  H  Y  H  Y  H  Y  H  Y#',
+    '# &       &        &         #',
+    '# ........................   #',
+    '# .   ##  Y  F  Y  ##   .  & #',
+    '#@.   ##  .......  ##   .....>',
+    '# .  &    $  .  $       .    #',
+    '# ........................   #',
+    '#Y  H  Y  H  Y  H  Y  H  Y  H#',
+    '##############################',
+  ],
+  [
+    '##############################',
+    '#H  Y   ~~~~~~   Y   H    Y  #',
+    '#   &   ~~~~~~      &    &   #',
+    '#  .....~~~~~~.........      #',
+    '#  .    ~~~~~~    F   .   Y  #',
+    '#@ .        Y         ......>#',
+    '#  .   &  $   ~~~~  &      $ #',
+    '#  .........  ~~~~           #',
+    '#H    Y    H  ~~~~  Y   H   Y#',
+    '##############################',
+  ],
+  [
+    '##############################',
+    '#   H   Y   H   Y   H   Y    #',
+    '# &   &   &                  #',
+    '# ..........................>#',
+    '# .   Y   ^^   F   ^^   Y    #',
+    '#@.       ^^       ^^    &   #',
+    '# .   $                   $  #',
+    '# ......................     #',
+    '#H  Y  &   Y   H   Y   H   Y #',
+    '##############################',
+  ],
+  [
+    '##############################',
+    '#Y H Y H Y H Y H Y H Y H Y H #',
+    '#   &     &      &           #',
+    '#  ......................... #',
+    '#  .  Y  Y   F  F   Y  Y   . #',
+    '#@ .         Y  Y          . #',
+    '#  .   &   $   F  F  $   & . #',
+    '#  ......................... #',
+    '#Y H Y H Y H Y H Y H Y H Y H #',
+    '##############################',
+  ],
+];
+
+// the Happy Caravan travels with the hero and sets up in every village
+const CARAVAN: Person[] = [
+  { spr: 'tailor', name: ['Tailor Tilly', 'Sastra Tilly'], act: 'shop', say: [['Welcome to the Happy Caravan boutique! Hats, swords, shields: all style, zero stats. Pure fabulous!', '¡Bienvenido a la boutique de la Caravana Feliz! Sombreros, espadas, escudos: puro estilo, cero estadísticas. ¡Pura fantasía!']] },
+  { spr: 'sensei', name: ['Sensei Kip', 'Sensei Kip'], act: 'dojo', say: [['Zap the mice with the right keys! One gold per mouse. Hiyaa!', '¡Fulmina ratones con las teclas correctas! Una moneda por ratón. ¡Hiyaa!']] },
+  { spr: 'jester', name: ['Chester the Jester', 'Chester el Bufón'], act: 'chest', say: [['Three chests, one jackpot! 5 gold to play, 15 if you guess right. Rats in the others. Hee hee!', '¡Tres cofres, un premio! 5 monedas por jugar, 15 si aciertas. En los otros hay ratas. ¡Ji ji!']] },
+];
+const party = (name: Tx, ground: Ground, wall: string, map: string[], intro: Line[], locals: Person[]): Chapter =>
+  ({ name, ground, wall, roamer: '', intro, map, levels: [], sages: [], lore: [], npcs: [...CARAVAN, ...locals] });
+const NEXT: Line = ['hero', '', ['No monsters here, just fun! The portal on the far side takes me on when I\'m ready. Gold buys costumes at Tilly\'s.', '¡Aquí no hay monstruos, solo diversión! El portal del otro lado me lleva adelante cuando quiera. Con oro compro disfraces donde Tilly.']];
+
+// one festival village after each chapter: no monsters, just friends, games and the costume shop
+const VILLAGES: Chapter[] = [
+  party(['Sunny Square', 'Plaza Soleada'], { kind: 'grass', ramp: ['#3f7a34', '#5a9a40', '#8cc152', '#b5e06a'], flowers: true }, 'bush', VILLAGE_MAPS[0], [
+    ['', '', ['The Arrow Rat is gone and Hjkl Village throws a party! Balloons, music, and the Happy Caravan just rolled into town.', '¡La Rata Flecha se fue y la Aldea Hjkl hace una fiesta! Globos, música, y la Caravana Feliz acaba de llegar.']], NEXT,
+  ], [
+    { spr: 'kid', name: ['Kid', 'Niño'], say: [['You beat the rats! I\'m gonna be a vimmer when I grow up! jjjjkkkk!', '¡Venciste a las ratas! ¡De mayor seré vimmer! ¡jjjjkkkk!']] },
+    { spr: 'girl', name: ['Baker Bea', 'Panadera Bea'], say: [['We baked a cake shaped like the letter h. It tastes like the home row!', 'Horneamos una tarta con forma de h. ¡Sabe a fila guía!']] },
+  ]),
+  party(['Harvest Fest', 'Fiesta de la Cosecha'], { kind: 'grass', ramp: ['#8c8634', '#ada646', '#dcd06c', '#f2e79a'], flowers: true }, 'bush', VILLAGE_MAPS[1], [
+    ['', '', ['The boars have gone home and the fields are golden again. Time for the Harvest Fest!', 'Los jabalíes volvieron a casa y los campos brillan otra vez. ¡Llegó la Fiesta de la Cosecha!']], NEXT,
+  ], [
+    { spr: 'shepherd', name: ['Shepherd', 'Pastor'], say: [['The sheep counted themselves for once: 3j, 5k, 2l. They\'re so proud.', 'Las ovejas se contaron solas por una vez: 3j, 5k, 2l. Están orgullosísimas.']] },
+    { spr: 'nine', name: ['Nine', 'Nueve'], say: [['I won the pie contest with a nine-layer pie. Nine. Like 9j. Get it? GET IT?', 'Gané el concurso con una tarta de nueve pisos. Nueve. Como 9j. ¿Lo pillas? ¿LO PILLAS?']] },
+  ]),
+  party(['Lily Pad Town', 'Pueblo Nenúfar'], { kind: 'grass', ramp: ['#2e6b4a', '#3f8a5c', '#62b070', '#9ad98a'], flowers: true, water: ['#1d5aa0', '#2f7fc0', '#5aa8e0', '#bfe9ff'] }, 'bush', VILLAGE_MAPS[2], [
+    ['', '', ['Without the Typo Toad, the swamp blooms into a town of lily pads, frogs in bow ties and very happy ponds.', 'Sin el Sapo Errata, el pantano florece: un pueblo de nenúfares, ranas con pajarita y estanques muy felices.']], NEXT,
+  ], [
+    { spr: 'mer', name: ['Pond Singer', 'Cantora del Estanque'], say: [['The swamp smells like flowers now! Well... mostly flowers.', '¡El pantano ahora huele a flores! Bueno... casi todo a flores.']] },
+    { spr: 'fairy', name: ['Fairy Fizz', 'Hada Fizz'], say: [['I put a party hat on a frog. He refuses to take it off. Best day ever.', 'Le puse un gorro de fiesta a una rana. Se niega a quitárselo. Mejor día de mi vida.']] },
+  ]),
+  party(['Glowstone Market', 'Mercado Piedraluz'], { kind: 'rock', ramp: ['#514942', '#706559', '#9a8a74', '#c9b48f'] }, 'boulder', VILLAGE_MAPS[3], [
+    ['', '', ['Out of the caverns, the miners light up a market full of glowstones, lanterns and very loud music.', 'Al salir de las cavernas, los mineros montan un mercado lleno de piedraluz, farolillos y música muy alta.']], NEXT,
+  ], [
+    { spr: 'dwarf', name: ['Gem Seller', 'Vendedor de Gemas'], say: [['Glowstones! Fresh glowstones! Free for heroes, since they don\'t do anything!', '¡Piedraluz! ¡Piedraluz fresquita! Gratis para héroes, porque no sirven para nada.']] },
+    { spr: 'hermit', name: ['Hermit', 'Ermitaño'], say: [['I came up from the dark for the party. Too bright. Love it.', 'Subí de la oscuridad para la fiesta. Demasiada luz. Me encanta.']] },
+  ]),
+  party(['Victory Parade', 'Desfile de la Victoria'], { kind: 'tiles', ramp: ['#5a3a7a', '#7a52a0', '#a07ac8', '#d2b0f0'] }, 'bush', VILLAGE_MAPS[4], [
+    ['', '', ['Dr. Clicker is gone! All of Textoria comes out for the biggest parade the 8-bit kingdom has ever seen.', '¡El Dr. Clicker ya no está! Toda Textoria sale al desfile más grande que el reino de 8 bits ha visto jamás.']],
+    ['hero', '', ['A party just for me? Time to wear my best hat.', '¿Una fiesta solo para mí? Hora de ponerme mi mejor sombrero.']],
+  ], [
+    { spr: 'king', name: ['King Bram', 'Rey Bram'], say: [['PROMPT! The whole kingdom is dancing. Even I am dancing. Kings don\'t dance!', '¡PROMPT! Todo el reino está bailando. Hasta yo bailo. ¡Los reyes no bailan!']] },
+    { spr: 'mom', name: ['Mom', 'Mamá'], say: [['My little cursor saved Textoria! Wear something nice for the parade, honey.', '¡Mi cursorcito salvó Textoria! Ponte algo bonito para el desfile, cariño.']] },
+  ]),
+];
+
+// costumes from Tilly's shop: id = sprite name. Looks only, no effect on the game.
+export type Slot = 'hat' | 'sword' | 'shield';
+const ITEMS: Record<string, { slot: Slot; name: Tx; price: number }> = {
+  partyhat: { slot: 'hat', name: ['Party Hat', 'Gorro de Fiesta'], price: 15 },
+  wizardhat: { slot: 'hat', name: ['Wizard Hat', 'Sombrero de Mago'], price: 40 },
+  goldcrown: { slot: 'hat', name: ['Golden Crown', 'Corona de Oro'], price: 90 },
+  woodsword: { slot: 'sword', name: ['Wooden Sword', 'Espada de Madera'], price: 15 },
+  ironsword: { slot: 'sword', name: ['Iron Sword', 'Espada de Hierro'], price: 40 },
+  flamesword: { slot: 'sword', name: ['Flame Sword', 'Espada de Fuego'], price: 90 },
+  woodshield: { slot: 'shield', name: ['Wooden Shield', 'Escudo de Madera'], price: 15 },
+  shell: { slot: 'shield', name: ['Turtle Shell', 'Caparazón de Tortuga'], price: 40 },
+  starshield: { slot: 'shield', name: ['Star Shield', 'Escudo Estrella'], price: 90 },
+};
+
 const MONSTERS: Record<SpellId, Monster> = {
   hjkl: { spr: 'rat', name: ['Arrow Rat', 'Rata Flecha'], taunt: ['Squeak! Arrow keys forever! I nibbled the letters out of your words!', '¡Iiic! ¡Flechas para siempre! ¡Me comí las letras de tus palabras!'] },
   words: { spr: 'bat', name: ['Word Bat', 'Murciélago Verbal'], taunt: ['Skreee! I flutter between words faster than you can blink!', '¡Skriii! ¡Revoloteo entre palabras más rápido de lo que parpadeas!'] },
@@ -385,4 +509,4 @@ const ENDING: Line[] = [
   ['', '', ['THE END. Replay any battle with :train to earn ★★★ on every one. Then try the Vimmer level.', 'FIN. Repite cualquier batalla con :train y consigue ★★★ en todas. Luego prueba el nivel Vimmer.']],
 ];
 
-export { CHAPTERS, MONSTERS, ROAMERS, ENDING };
+export { CHAPTERS, VILLAGES, ITEMS, MONSTERS, ROAMERS, ENDING };
