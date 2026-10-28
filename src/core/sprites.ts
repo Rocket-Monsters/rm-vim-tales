@@ -118,6 +118,10 @@ const ART: Record<string, string[]> = {
     '.44444499444444', '.44ffffffffff44', '.44f4ff4ff4ff44', '..4ffffffffff4', '..44f4ff4ff444', '...4444444444',
     '....99....99',
   ],
+  mummy: [
+    '', '.....777777', '....76777767', '...7777777777', '...7887667887', '...7777777777', '....67777766', '...7777777777',
+    '..776677776677', '..7.777777.77', '..7.776677.67', '....7777777', '....7767.7767', '....777..777', '....666..666',
+  ],
   mosquito: [
     '', '......0..0', '.......55', '......5885', '.......55', '..ccc..55..ccc', '.c777c5555c777c', '.c7777c55c7777c',
     '..c777c55c777c', '...ccc5885ccc', '......5885', '.....5.88.5', '....5..88..5', '...5...55...5',
@@ -194,7 +198,8 @@ const CAST: Record<string, [string, string]> = {
   girl: ['long', '9 8 7 f'], ferry: ['hat', '5 4 5 f'], scribe: ['folk', '6 2 1 f'], kid: ['folk', '4 c 4 f'],
   miner: ['helm', 'a 5 4 f 5'], hermit: ['hood', '5 d 5 f'], dwarf: ['helm', '6 4 5 f 9'], captain: ['folk', '8 1 8 f'],
   teacher: ['long', '5 3 6 f'], nine: ['folk', 'a 9 4 f'],
-  keeper: ['hood', '2 6 d f'], bard: ['hat', 'e 2 9 f'],
+  keeper: ['hood', '2 6 d f'], bard: ['hat', 'e 2 9 f'], ayla: ['long', 'd 1 a f'], explorer: ['hat', '9 4 5 f'],
+  mason: ['folk', '6 5 4 f'], sailor: ['folk', '1 c 7 f'],
 };
 
 // gate bosses: their species' art in new colors ("from:to" palette swaps) plus marks of their own
@@ -214,6 +219,10 @@ const BOSS: Record<string, [string, string, [number, number, string][]]> = {
   ghostBoss: ['ghost', '7:d d:2 0:a', [[7, 3, '11'], [8, 3, '1'], [9, 3, '1'], [10, 3, '11'], [7, 11, '11'], [8, 12, '1'], [9, 12, '1'], [10, 11, '11']]],
   wolfBoss: ['wolf', '5:1 6:c', [[2, 5, '888888'], [3, 4, '88888888'], [3, 12, '8'], [12, 6, 'aaaa']]],
   catBoss: ['cat', '9:5 e:8', [[7, 3, '000000000'], [12, 4, 'aaaaaa']]],
+  // tower guardians: Dr. Clicker's army
+  swarmBoss: ['pointer', '7:8 0:2', [[0, 8, 'a.a.a'], [1, 8, 'aaaaa'], [9, 12, '8'], [10, 13, '8']]],
+  smearBoss: ['ghost', '7:b d:3 0:0', [[14, 3, 'b'], [15, 3, 'b'], [14, 9, 'b'], [15, 9, 'b'], [2, 6, '.7']]],
+  cloneBoss: ['clicker', '6:5 7:6 e:c c:8', [[1, 6, '....'], [12, 6, '7..7']]],
   owlBoss: ['owl', '4:d f:7 7:a', [[0, 3, '0000000000'], [1, 6, '0000'], [1, 12, 'a'], [2, 12, 'a']]],
 };
 

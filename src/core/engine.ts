@@ -1,6 +1,6 @@
 // vim-tales engine: a small vim subset + the levels. Shared by the UI and the tests.
 export type SpellId = 'hjkl' | 'words' | 'edges' | 'counts' | 'find' | 'x' | 'insert' | 'lines' | 'delete' | 'motions'
-  | 'change' | 'inside' | 'replace' | 'yank' | 'dot' | 'boss';
+  | 'change' | 'inside' | 'around' | 'replace' | 'yank' | 'dot' | 'recap1' | 'recap2' | 'recap3' | 'boss';
 export type Mode = 'normal' | 'insert';
 export interface Pos { r: number; c: number }
 // where a motion lands; operators use inclusive/linewise/start to pick the range
@@ -108,6 +108,20 @@ class Vim {
       }
       case 'e': return { ...rep(this.wordEnd), inclusive: true };
       case 'b': return rep(this.wordBack);
+      case '%': { // the bracket under (or after) the cursor on this line → its partner, across lines
+        const P = '()[]{}', l = L[r];
+        let x = c;
+        while (x < l.length && !P.includes(l[x])) x++;
+        if (x >= l.length) return 'fail';
+        const i = P.indexOf(l[x]), open = P[i & ~1], close = P[i | 1], dir = i & 1 ? -1 : 1;
+        let d = 0;
+        for (let rr = r; rr >= 0 && rr < L.length; rr += dir, x = dir > 0 ? 0 : (L[rr]?.length ?? 0) - 1)
+          for (; x >= 0 && x < L[rr].length; x += dir) {
+            if (L[rr][x] === open) d += dir; else if (L[rr][x] === close) d -= dir;
+            if (!d) return { r: rr, c: x, inclusive: true };
+          }
+        return 'fail';
+      }
       case ';': case ',': {
         if (!this.lastFind) return 'fail';
         const { cmd, ch } = this.lastFind;
@@ -351,14 +365,14 @@ class Run {
 const HEAD: Record<string, SpellId> = { h: 'hjkl', j: 'hjkl', k: 'hjkl', l: 'hjkl', w: 'words', b: 'words', e: 'words', 0: 'edges', '^': 'edges', $: 'edges',
   G: 'counts', g: 'counts', f: 'find', F: 'find', t: 'find', T: 'find', ';': 'find', ',': 'find', x: 'x', X: 'x', i: 'hjkl', a: 'insert',
   I: 'lines', A: 'lines', o: 'lines', O: 'lines', J: 'lines', D: 'motions', C: 'change', s: 'change', S: 'change',
-  r: 'replace', '~': 'replace', p: 'yank', P: 'yank', u: 'dot', '.': 'dot' };
+  r: 'replace', '~': 'replace', p: 'yank', P: 'yank', u: 'dot', '.': 'dot', '%': 'around' };
 const OPS: Record<string, SpellId> = { d: 'delete', c: 'change', y: 'yank' };
 function needs(cmd: string): SpellId[] {
   const [, n1, op, n2, h] = cmd.match(/^([1-9]\d*)?([dcy])?([1-9]\d*)?(.?)/)!;
   const out: (SpellId | undefined)[] = [];
   if (n1 || n2) out.push('counts');
   if (op) out.push(OPS[op]);
-  if (h && h !== op) out.push(op && 'ia'.includes(h) ? 'inside' : HEAD[h]);
+  if (h && h !== op) out.push(op && h === 'i' ? 'inside' : op && h === 'a' ? 'around' : HEAD[h]);
   return out.filter((s): s is SpellId => !!s);
 }
 // returns the first unlearned spell this key would use, or null
@@ -366,7 +380,7 @@ const locked = (v: Vim, k: string, learned: ReadonlySet<string>): SpellId | null
 
 const stars = (lv: { par: number }, keys: number) => (keys <= lv.par ? 3 : keys <= lv.par * 1.5 ? 2 : 1);
 
-const M = 'I. The Meadow — movement', W = 'II. The Workshop — editing', B = 'III. The Tower — mastery';
+const M = 'I. The Meadow — movement', W = 'II. The Workshop — editing', O = 'III. The Ruins — objects', B = 'IV. The Tower — mastery';
 const LEVELS: Lesson[] = [
   {
     id: 'hjkl', world: M, title: 'Modes and first steps',
@@ -457,15 +471,23 @@ const LEVELS: Lesson[] = [
     par: 17, solution: 'wwcwvim<Esc>wwcwtmux<Esc>',
   },
   {
-    id: 'inside', world: B, title: 'Inside things',
-    learn: 'Text objects: after an operator, i{obj} means "inside", a{obj} means "around". ciw changes the word under the cursor wherever you are in it, ci" changes inside quotes, ci( inside parentheses.',
-    keys: [['ciw', 'change inner word'], ['ci"', 'change in quotes'], ['ci(', 'change in parens'], ['da(', 'delete around parens']],
+    id: 'inside', world: O, title: 'Inside things',
+    learn: 'Text objects: after an operator, i{obj} means "inside". ciw changes the word under the cursor wherever you are in it, ci" changes inside quotes, ci( inside parentheses.',
+    keys: [['ciw', 'change inner word'], ['ci"', 'change in quotes'], ['ci(', 'change in parens']],
     start: 'greet("hello world", count(42))',
     goal: 'greet("hi", count(7))',
     par: 13, solution: 'ci"hi<Esc>f4ci(7<Esc>',
   },
   {
-    id: 'replace', world: B, title: 'Shape shifter',
+    id: 'around', world: O, title: 'Around things',
+    learn: 'a{obj} means "around": the object and its wrapping. daw deletes a word and its space, da( a whole (group), da[ a whole [list]. % jumps from a bracket to its partner.',
+    keys: [['daw', 'delete a word'], ['da(', 'delete around parens'], ['da[', 'delete around brackets'], ['%', 'matching bracket']],
+    start: 'attack(goblin)(sword) with with fire',
+    goal: 'attack(goblin) with fire',
+    par: 12, solution: 'f(%lda(wdaw',
+  },
+  {
+    id: 'replace', world: O, title: 'Shape shifter',
     learn: 'r{char} replaces one character without entering insert mode. ~ toggles the case and moves right.',
     keys: [['r{c}', 'replace char'], ['~', 'toggle case']],
     start: 'hello Vim world, i lovE it',
@@ -473,7 +495,7 @@ const LEVELS: Lesson[] = [
     par: 11, solution: '~fw~fi~fEre',
   },
   {
-    id: 'yank', world: B, title: 'Copy cat',
+    id: 'yank', world: O, title: 'Copy cat',
     learn: 'y yanks (copies) with any motion: yw a word, yy a line. p puts after the cursor (or below for lines), P puts before. Anything you delete can be put too.',
     keys: [['yw', 'yank word'], ['yy', 'yank line'], ['p', 'put after'], ['P', 'put before']],
     start: 'hip hooray\n- item',
@@ -481,12 +503,37 @@ const LEVELS: Lesson[] = [
     par: 7, solution: 'ywPjyyp',
   },
   {
-    id: 'dot', world: B, title: 'Echoes',
+    id: 'dot', world: O, title: 'Echoes',
     learn: '. repeats your last change, the most powerful key in vim. Change one foo, then jump to the next and press . — made a mistake? u undoes.',
     keys: [['.', 'repeat change'], ['u', 'undo']],
     start: 'foo = foo + foo * foo',
     goal: 'bar = bar + bar * bar',
     par: 15, solution: 'cwbar<Esc>ff.ff.ff.',
+  },
+  // recap guardians: every round is a random spell from their group (see RECAP in game.ts)
+  {
+    id: 'recap1', world: B, title: 'Recap: Click Storm',
+    learn: 'Every movement spell of Chapters I and II at once. Each gap wants a different leap: words, edges, counts or a find.',
+    keys: [['w', 'next word'], ['$', 'line end'], ['^', 'first non-blank'], ['fx', 'find x']],
+    start: 'jump to th end\n    nd the start\nfind the bx',
+    goal: 'jump to the end\n    and the start\nfind the box',
+    par: 20, solution: 'wwelie<Esc>j^ia<Esc>jfxio<Esc>',
+  },
+  {
+    id: 'recap2', world: B, title: 'Recap: Drag Smear',
+    learn: 'Every editing spell of Chapters III and IV: x, insert, A I o O, d with motions, c.',
+    keys: [['x', 'delete char'], ['A', 'append at end'], ['dd', 'delete line'], ['cw', 'change word']],
+    start: 'Thhe cat sat\nlet x = 1\ndelete me\nI love cats',
+    goal: 'The cat sat\nlet x = 1;\nI love dogs',
+    par: 20, solution: 'lxjA;<Esc>jddwwcwdogs<Esc>',
+  },
+  {
+    id: 'recap3', world: B, title: 'Recap: Clicker Clones',
+    learn: 'Everything from Chapters V and VI: text objects, replace, yank and put, and the dot.',
+    keys: [['ci"', 'change in quotes'], ['cw', 'change word'], ['.', 'repeat change'], ['ywP', 'copy a word']],
+    start: 'heal("x")\nfoo bar foo\nhip hooray',
+    goal: 'heal("potion")\nbaz bar baz\nhip hip hooray',
+    par: 28, solution: 'ci"potion<Esc>j0cwbaz<Esc>ww.j0ywP',
   },
   {
     id: 'boss', world: B, title: 'Boss: the refactor',
