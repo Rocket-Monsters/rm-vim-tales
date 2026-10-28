@@ -1,6 +1,8 @@
-// node test.js — every level must be solvable by its solution within par, plus engine spot checks
-const assert = require('assert');
-const { Vim, Run, LEVELS, tokens } = require('./engine.js');
+// bun run test — every level must be solvable by its solution within par, plus engine spot checks
+import assert from 'node:assert';
+import { Vim, Run, LEVELS, tokens, needs, locked } from '../src/core/engine.ts';
+import { World, makeRound, rng, upTo, GEN, solveSteps, ROUNDS, MOVE_SPELLS } from '../src/core/game.ts';
+import { CHAPTERS, MONSTERS } from '../src/core/story.ts';
 
 for (const lv of LEVELS) {
   const run = new Run(lv);
@@ -23,8 +25,6 @@ assert.equal(t('l1\nl2\nl3', 'jdG'), 'l1');
 console.log(`ok: ${LEVELS.length} levels`);
 
 // gating: every handcrafted solution uses only spells learned so far
-const { needs, locked } = require('./engine.js');
-const { World, makeRound, rng, upTo, GEN, solveSteps, ROUNDS, MOVE_SPELLS } = require('./game.js');
 const playGated = (lv, learned) => {
   const run = new Run(lv);
   for (const k of tokens(lv.solution)) {
@@ -49,7 +49,6 @@ for (const lv of LEVELS) for (let seed = 1; seed <= 6; seed++) {
 console.log('ok: generated rounds');
 
 // story maps: equal widths, every level has sage+monster, monsters gate the path in order
-const { CHAPTERS, MONSTERS } = require('./story.js');
 const seen = [];
 CHAPTERS.forEach((ch, ci) => {
   const m = ch.map, W = m[0].length;
@@ -126,3 +125,22 @@ CHAPTERS.forEach((ch, ci) => {
 });
 assert.deepEqual(seen, LEVELS.map(l => l.id), 'chapters must cover every level in order');
 console.log(`ok: ${CHAPTERS.length} chapters`);
+
+// sprites: every sprite the story uses exists and fits 16x16
+import { grid, NAMES } from '../src/core/sprites.ts';
+import { UI, LESSONS_ES, fingers } from '../src/ui/i18n.js';
+const used = [...CHAPTERS.flatMap(ch => [ch.wall, ch.roamer, ...ch.sages.map(p => p.spr), ...ch.npcs.map(p => p.spr)]), ...Object.values(MONSTERS).map(m => m.spr), 'hero', 'chest', 'heart', 'key', 'door', 'portal', 'house', 'boulder', 'tuft', 'water', 'stone', 'path', 'sand'];
+for (const n of used) assert(NAMES.includes(n), `sprite ${n} missing`);
+for (const n of NAMES) { const g = grid(n); assert(g.length <= 16 && g.every(r => r.length <= 16), `sprite ${n} bigger than 16x16`); }
+// i18n: Spanish covers every UI string and every lesson key
+const keysOf = o => Object.keys(o).sort().join();
+assert.equal(keysOf(UI.es), keysOf(UI.en), 'UI.es keys differ from UI.en');
+assert.equal(UI.es.onboard.length, UI.en.onboard.length);
+for (const lv of LEVELS) assert.equal(LESSONS_ES[lv.id]?.[2].length, lv.keys.length, `LESSONS_ES.${lv.id} key count`);
+// fingers: every typed char in a lesson key has a finger; spot-check the layout
+for (const lv of LEVELS) for (const [k] of lv.keys) assert.equal(fingers(k).length, new Set(k === 'Esc' ? [k] : k.replace(/\{\w+\}|\s/g, '')).size, `finger missing for ${k}`);
+assert.deepEqual(fingers('dw'), [['d', ['lm', null]], ['w', ['lr', null]]]);
+assert.deepEqual(fingers('$'), [['$', ['li', 'rp']]]);
+assert.deepEqual(fingers('O'), [['O', ['rr', 'lp']]]);
+assert.deepEqual(fingers('f{c}'), [['f', ['li', null]]]);
+console.log(`ok: ${NAMES.length} sprites, en/es text, fingers`);
