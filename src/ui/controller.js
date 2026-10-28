@@ -225,7 +225,7 @@ export function startGame() {
       if (S.learned.includes(id)) return say([person(sage, LV[id].learn)]);
       return say([...sage.say.map(s => person(sage, tx(s))), person(sage, LV[id].learn), [T().newSpell, `${LV[id].title}: ${spellKeys(id)}`, 'chest']], () => {
         S.learned.push(id); S.spawn = { r: world.r, c: world.c }; save(); draw();
-        if (id !== 'boss') wizard(spellCards(id));
+        if (id !== 'boss') teach(id);
       });
     }
     if (t >= 'A' && t <= 'E') {
@@ -273,25 +273,32 @@ export function startGame() {
     const kind = pickR(Math.random, Object.keys(FIGHTS)), name = tx(ROAMERS[CH().roamer]);
     say([[name, T().encounter(name, ...T().fights[kind]), CH().roamer]], () => startBattle(null, false, { roamer, kind }));
   }
+  // a new spell: read its key cards, then use it in a practice round with the sage who taught it
+  const teach = id => wizard(spellCards(id), () => startBattle(id, true, null, true));
+  const sageOf = id => { const ch = CHAPTERS.find(c => c.levels.includes(id)); return ch.sages[ch.levels.indexOf(id)]; };
   // id: a gate monster's spell; foe: { roamer, kind } for a roaming monster (each round a random learned spell)
-  function startBattle(id, training, foe = null) {
+  // practice: one generated round against the sage, no clock and no damage, passed within PRACTICE × par keys
+  function startBattle(id, training, foe = null, practice = false) {
     clearInterval(B?.timer);
-    const m = foe ? { spr: CH().roamer, name: ROAMERS[CH().roamer] } : MONSTERS[id];
-    B = { id, training, foe, R: rng(Date.now() | 0), round: 0, total: foe ? FIGHTS[foe.kind].rounds : id === 'boss' ? BOSS_ROUNDS : ROUNDS,
+    const m = foe ? { spr: CH().roamer, name: ROAMERS[CH().roamer] } : practice ? sageOf(id) : MONSTERS[id];
+    B = { id, training, foe, practice, R: rng(Date.now() | 0), round: 0, total: practice ? 1 : foe ? FIGHTS[foe.kind].rounds : id === 'boss' ? BOSS_ROUNDS : ROUNDS,
       hp: D_().hp, keys: 0, par: 0, state: 'fight', timer: setInterval(tickBattle, 100) };
     $('foeIcon').className = 'sprite'; $('foeIcon').innerHTML = img(m.spr);
     $('meIcon').innerHTML = img('hero');
     $('foeName').textContent = tx(m.name);
     $('meName').textContent = `${S.name.toUpperCase()}  ${S.lang === 'es' ? 'NV' : 'LV'} ${level()}`;
+    $('bHelp').textContent = practice ? T().practiceHelp : T().battleHelp;
     $('battle').hidden = false;
     newRound();
   }
   function newRound() {
     B.spell = B.foe ? pickR(B.R, [...learnedSet()].filter(id => id !== 'boss')) : B.id;
-    B.lv = makeRound(B.spell, B.R, B.foe ? 1 + B.round : B.round, learnedSet());
+    B.lv = makeRound(B.spell, B.R, B.foe || B.practice ? 1 + B.round : B.round, learnedSet());
     B.run = new Run(B.lv);
     B.d0 = lev(B.lv.start, B.lv.goal) || 1;
-    B.hint = ''; B.note = B.round ? '' : T().goalNote;
+    // ponytail: "used the spell" = finished within 1.5x par (par is the cheapest path with the new spell); track the keys used if that proves too loose
+    B.limit = B.practice ? Math.ceil(B.lv.par * 1.5) : B.lv.par;
+    B.hint = ''; B.note = B.practice ? T().practiceNote(spellKeys(B.spell)) : B.round ? '' : T().goalNote;
     B.secs = roundSecs(B.lv.par, D_().pace, B.foe ? FIGHTS[B.foe.kind].time : 1);
     B.end = Date.now() + B.secs * 1000;
     const lv = LV[B.spell];
@@ -303,6 +310,7 @@ export function startGame() {
   function hit(id) { const el = $(id); el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); }
   // the clock only runs while fighting; at zero the monster wins
   function tickBattle() {
+    if (B.practice) { $('bTime').style.width = '100%'; $('bClock').textContent = '⏱ ∞'; return; }
     if (B.state !== 'fight') return;
     const left = Math.max(0, B.end - Date.now());
     $('bTime').style.width = (left / (B.secs * 1000)) * 100 + '%';
@@ -317,13 +325,13 @@ export function startGame() {
   function battleKey(k) {
     if (B.state === 'lost') { if (k === '<CR>') B.foe ? roamerLost() : startBattle(B.id, B.training); return; }
     if (B.state !== 'fight') return;
-    if (k.startsWith('Arrow')) { B.hp -= 3; B.note = T().arrowBurn; hit('meIcon'); return afterHit(); }
+    if (k.startsWith('Arrow')) { if (!B.practice) B.hp -= 3; B.note = T().arrowBurn; hit('meIcon'); return afterHit(); }
     const miss = locked(B.run.vim, k, learnedSet());
     if (miss) { B.run.vim.pending = ''; B.note = T().notLearnedB(LV[miss].title); return renderBattle(); }
     const before = roundLeft();
     B.run.press(k);
     B.note = B.run.vim.msg;
-    if (B.run.keys > B.lv.par) { B.hp--; hit('meIcon'); }
+    if (B.run.keys > B.lv.par && !B.practice) { B.hp--; hit('meIcon'); }
     if (roundLeft() < before) hit('foeIcon');
     if (B.run.done) return roundWon();
     afterHit();
@@ -333,6 +341,12 @@ export function startGame() {
     renderBattle();
   }
   function roundWon() {
+    if (B.practice) {
+      if (B.run.keys > B.limit) { B.run = new Run(B.lv); B.note = T().practiceRetry(spellKeys(B.spell)); return renderBattle(); }
+      const { id } = B, sage = sageOf(id);
+      endBattle(); draw();
+      return say([person(sage, T().practiceDone(LV[id].title))], draw);
+    }
     B.keys += B.run.keys; B.par += B.lv.par; B.round++;
     B.state = 'pause';
     B.note = B.round >= B.total ? T().finalBlow : T().cleared(B.round, B.run.keys <= B.lv.par);
@@ -394,13 +408,13 @@ export function startGame() {
     $('bGoal').innerHTML = goal.map((l, r) => line(l, r, null, l === v.lines[r] ? 'ok' : '', v.lines[r], 'miss')).join('');
     const foe = B.state === 'pause' ? (B.total - B.round) / B.total : (B.total - B.round - 1 + roundLeft()) / B.total;
     $('foeHP').style.width = foe * 100 + '%';
-    $('round').textContent = (B.foe ? T().fights[B.foe.kind][0] + ' · ' : '') + `${T().round} ${Math.min(B.round + 1, B.total)}/${B.total}`;
+    $('round').textContent = (B.practice ? T().practiceTag + ' · ' : B.foe ? T().fights[B.foe.kind][0] + ' · ' : '') + `${T().round} ${Math.min(B.round + 1, B.total)}/${B.total}`;
     $('meHP').style.width = (B.hp / D_().hp) * 100 + '%';
     $('meHPtxt').textContent = `${S.lang === 'es' ? 'PV' : 'HP'} ${B.hp}/${D_().hp}`;
     $('bMode').textContent = v.mode === 'insert' ? T().insert : 'NORMAL';
     $('bMode').className = 'mode ' + v.mode;
     $('bPending').textContent = v.pending;
-    $('bCount').textContent = T().keysPar(run.keys, B.lv.par) + (run.keys > B.lv.par ? T().overPar : '');
+    $('bCount').textContent = (B.practice ? T().keysMax : T().keysPar)(run.keys, B.limit) + (run.keys > B.limit ? (B.practice ? T().overLimit : T().overPar) : '');
     $('bNote').textContent = nm(B.note || '');
     $('bHint').textContent = B.hint ? T().whisper(B.hint) : '';
   }
@@ -465,12 +479,14 @@ export function startGame() {
       }
       case 'hint':
         if (!B || B.state !== 'fight') return err(T().hintOnly);
-        B.hp -= 5; B.hint = B.lv.solution; return afterHit();
+        if (!B.practice) B.hp -= 5;
+        B.hint = B.lv.solution; return afterHit();
       case 'e!': case 'e':
         if (!B || B.state !== 'fight') return err(T().noFile);
         B.run = new Run(B.lv); B.note = T().restarted; return renderBattle();
       case 'q': case 'q!': case 'quit':
         if (!B) return err(T().noEscape);
+        if (B.practice) return err(T().practiceStay);
         if (B.foe) return roamerLost();
         endBattle(); draw(); return showCmd(T().fled);
       case 'name':
@@ -487,7 +503,7 @@ export function startGame() {
         if (!arg) return wizard(onboard());
         const lv = findSpell(arg);
         if (!lv || lv.id === 'boss' || !(lv.id === 'hjkl' || S.learned.includes(lv.id))) return err(T().noLesson(arg));
-        return wizard(spellCards(lv.id));
+        return teach(lv.id);
       }
       case 'dojo': return notInBattle() || startDojo();
       case 'lessons': case 'index': case 'ls': return notInBattle() || openIndex();
