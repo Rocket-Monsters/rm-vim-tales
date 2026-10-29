@@ -219,6 +219,17 @@ for (const id in ITEMS) assert(NAMES.includes(id), `costume sprite ${id} missing
 assert(outfit(['partyhat', 'flamesword', 'shell']).startsWith('data:image/svg+xml'));
 console.log(`ok: ${VILLAGES.length} villages, ${Object.keys(ITEMS).length} costumes`);
 
+// loot: all the treasure can't buy the best costumes; treasure plus every roamer (even at the 5g minimum) buys the whole shop
+{
+  const chests = [...CHAPTERS, ...VILLAGES].reduce((n, m) => n + new World(m).chests.length, 0) * 10;
+  const roamers = CHAPTERS.reduce((n, m) => n + new World(m).roamers.length, 0) * 5;
+  const prices = Object.values(ITEMS).map(i => i.price), top = Math.max(...prices);
+  const best = prices.filter(p => p === top).reduce((a, b) => a + b), all = prices.reduce((a, b) => a + b);
+  assert(chests < best, `chests alone (${chests}g) buy every best costume (${best}g)`);
+  assert(all <= chests + roamers, `whole shop (${all}g) costs more than chests + roamers (${chests + roamers}g)`);
+  console.log(`ok: loot ${chests}g chests < ${best}g best set, ${all}g shop <= ${chests + roamers}g with roamers`);
+}
+
 // undo is innate: usable from the first battle on
 assert.equal(locked(new Vim('ab'), 'u', new Set(['hjkl'])), null, 'u must be unlocked from the start');
 { const v = new Vim('ab'); v.key('x'); v.key('u'); assert.equal(v.text, 'ab', 'u undoes'); }

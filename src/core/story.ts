@@ -68,8 +68,8 @@ const MAPS: string[][] = [
     '#  ######    #                                  M                      #',
     '#            #  M       #     W    #                                 $ #',
     '   .   &     #          #          #                      M       ♥    #',
-    '######################################################################A#',
-    '#                         &                                         b  #',
+    '#####################################################################A##',
+    '#                         &                                           b#',
     '#~~~o~~~~~~~~o~~~~~~~~~~~~~$~~~~~~~#~~~~o~~~~~~~~~o~~~~~~~~~~$~~~~o~~~~#',
     '#~~~~~~~~~~~~o~~~~~$~~~~~o~~~~~~~~~#~~~~~~~~~~~~~~o~~~~~~~~~~~~~~~o~~~~#',
     '#~~~~~~~~~~~~~~~~~~~~~~~~o~~~~~~~~~#~~~~~~~~~~~~~~~~~~~~$~~~~~~~~~o~~~~#',
@@ -622,17 +622,18 @@ const VILLAGES: Chapter[] = [
 ];
 
 // costumes from Tilly's shop: id = sprite name. Looks only, no effect on the game.
+// priced so every chest (10g each) falls short of the 480g tier: the best set needs the roamers too (see tests)
 export type Slot = 'hat' | 'sword' | 'shield';
 const ITEMS: Record<string, { slot: Slot; name: Tx; price: number }> = {
-  partyhat: { slot: 'hat', name: ['Party Hat', 'Gorro de Fiesta'], price: 15 },
-  wizardhat: { slot: 'hat', name: ['Wizard Hat', 'Sombrero de Mago'], price: 40 },
-  goldcrown: { slot: 'hat', name: ['Golden Crown', 'Corona de Oro'], price: 90 },
-  woodsword: { slot: 'sword', name: ['Wooden Sword', 'Espada de Madera'], price: 15 },
-  ironsword: { slot: 'sword', name: ['Iron Sword', 'Espada de Hierro'], price: 40 },
-  flamesword: { slot: 'sword', name: ['Flame Sword', 'Espada de Fuego'], price: 90 },
-  woodshield: { slot: 'shield', name: ['Wooden Shield', 'Escudo de Madera'], price: 15 },
-  shell: { slot: 'shield', name: ['Turtle Shell', 'Caparazón de Tortuga'], price: 40 },
-  starshield: { slot: 'shield', name: ['Star Shield', 'Escudo Estrella'], price: 90 },
+  partyhat: { slot: 'hat', name: ['Party Hat', 'Gorro de Fiesta'], price: 20 },
+  wizardhat: { slot: 'hat', name: ['Wizard Hat', 'Sombrero de Mago'], price: 100 },
+  goldcrown: { slot: 'hat', name: ['Golden Crown', 'Corona de Oro'], price: 480 },
+  woodsword: { slot: 'sword', name: ['Wooden Sword', 'Espada de Madera'], price: 20 },
+  ironsword: { slot: 'sword', name: ['Iron Sword', 'Espada de Hierro'], price: 100 },
+  flamesword: { slot: 'sword', name: ['Flame Sword', 'Espada de Fuego'], price: 480 },
+  woodshield: { slot: 'shield', name: ['Wooden Shield', 'Escudo de Madera'], price: 20 },
+  shell: { slot: 'shield', name: ['Turtle Shell', 'Caparazón de Tortuga'], price: 100 },
+  starshield: { slot: 'shield', name: ['Star Shield', 'Escudo Estrella'], price: 480 },
 };
 
 const MONSTERS: Record<SpellId, Monster> = {
