@@ -26,6 +26,8 @@ const upTo = (id: SpellId) => new Set(['hjkl', ...LEVELS.slice(0, LEVELS.findInd
 // stepping-stones (=) are words. Walking (hjkl) goes tile by tile, every other motion is a leap.
 // _ is an opened chest: walkable, blank like grass. Bracket pillars ( ) [ ] { } are walkable words that % leaps between
 const WALK = ' .o=$♥+>_()[]{}';
+// a map's ':' becomes this hidden wall: drawn as wall, but blank for gg / G (they land on a line's first non-blank tile)
+export const HIDDEN = '\u00a0';
 const mapCls = (ch: string | undefined) => (ch !== undefined && ' .o~_'.includes(ch) ? 0 : ch === '=' ? 1 : 2);
 const DIRS: Record<string, [number, number]> = { h: [0, -1], j: [1, 0], k: [-1, 0], l: [0, 1] };
 
@@ -52,7 +54,7 @@ class World {
       if (t === '@') this.start = { r, c };
       if (t === '$') this.chests.push({ r, c });
     }));
-    const lines = saved || chapter.map.map(row => row.replace(/[MWK@]/g, ' '));
+    const lines = saved || chapter.map.map(row => row.replace(/[MWK@]/g, ' ').replaceAll(':', HIDDEN));
     this.nav = new Vim(lines.join('\n'), true, mapCls);
     let n = 0;
     let l = 0;

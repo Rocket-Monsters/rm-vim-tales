@@ -1,7 +1,7 @@
 // vim-tales game controller: drives the DOM rendered by the Solid components (menu, overworld, dialog, battle, : command line).
 // ponytail: imperative DOM updates by id; move state into Solid signals component by component.
 import { Run, LEVELS, stars, locked } from '../core/engine.ts';
-import { World, replayBonus, makeRound, useText, rng, pick as pickR, roundSecs, LV as LV_EN, ROUNDS, BOSS_ROUNDS, FIGHTS } from '../core/game.ts';
+import { World, replayBonus, makeRound, useText, rng, pick as pickR, roundSecs, LV as LV_EN, ROUNDS, BOSS_ROUNDS, FIGHTS, HIDDEN } from '../core/game.ts';
 import { CHAPTERS, VILLAGES, ITEMS, MONSTERS, ROAMERS, ENDING } from '../core/story.ts';
 import { sprite, outfit, groundTiles, NAMES } from '../core/sprites.ts';
 import { CODE_LANGS, download } from '../core/text.ts';
@@ -67,7 +67,7 @@ export function startGame() {
     try { localStorage.setItem(SAVE, JSON.stringify(S)); } catch {}
   }
   // a save made before a map update keeps the old layout: reload the map, keep beaten gates open
-  const shape = rows => rows.map(r => r.replace(/[$_♥%+|A-E@MW]/g, ' ')).join('\n');
+  const shape = rows => rows.map(r => r.replace(/[$_♥%+|A-E@MW]/g, ' ').replaceAll(HIDDEN, ':')).join('\n');
   // the treasure ledger: S.opened holds the id of every chest taken this save, so no chest ever refills
   const chestId = i => `${S.village ? 'v' : ''}${S.ch + 1}.$${i + 1}`;
   function syncChests() {
@@ -131,7 +131,7 @@ export function startGame() {
   function tile(t, r, c) {
     // anything standing in the water sits on a little sand island
     const ch = CH(), v = ((r * 7 + c * 13) ^ (r * c)) & 3, floor = t !== '#' && rowsAround(r, c).includes('~') && !/[ ]/.test(rowsAround(r, c)) ? 'g-isle' : 'g-f' + v;
-    if (t === '#') return [floor, img(ch.wall)];
+    if (t === '#' || t === HIDDEN) return [floor, img(ch.wall)];
     if (t === '^') return [floor, img('boulder')];
     if (t === '~') return ['water g-water', ''];
     if (t === '=') return ['g-stone', ''];

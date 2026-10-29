@@ -70,6 +70,7 @@ console.log('ok: generated rounds, treasure ledger');
 
 // story maps: equal widths, every level has sage+monster, monsters gate the path in order
 const seen = [];
+let vaults = 0;
 CHAPTERS.forEach((ch, ci) => {
   const m = ch.map, W = m[0].length;
   m.forEach((row, r) => assert.equal(row.length, W, `${ch.name} row ${r} width`));
@@ -148,6 +149,15 @@ CHAPTERS.forEach((ch, ci) => {
   }
   const all = reach(ch.levels.length, ch.levels.length);
   if (at('>')) assert(all.has(at('>') + ''), `${ch.name}: exit unreachable`);
+  // line-jump vaults: from chapter II on, lines whose first non-blank tile is treasure walled in on all sides, a few more each chapter
+  if (ci) {
+    const w = new World(ch), n = w.lines.filter((row, r) => {
+      const c = row.search(/\S/);
+      return '$♥'.includes(row[c]) && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dr, dc]) => w.walkable(r + dr, c + dc));
+    }).length;
+    assert(n >= (vaults || 1), `${ch.name}: ${n} gg/G vaults, chapter before had ${vaults}`);
+    vaults = n;
+  }
   m.forEach((row, r) => [...row].forEach((t, c) => {
     if ('$♥+'.includes(t)) assert(all.has([r, c] + ''), `${ch.name}: item ${t} at ${r},${c} unreachable`);
     if (t === 'L') assert([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dr, dc]) => all.has([r + dr, c + dc] + '')), `${ch.name}: lore keeper at ${r},${c} unreachable`);
