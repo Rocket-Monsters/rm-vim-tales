@@ -49,7 +49,7 @@ for (const lv of LEVELS) for (let seed = 1; seed <= 6; seed++) {
     assert.equal(run.keys, round.par, `${lv.id} par`);
   }
 }
-assert.equal(new World(CHAPTERS[0]).key('i', upTo('hjkl')).locked, 'battle', 'i must not edit the map');
+for (const k of 'ia') assert.equal(new World(CHAPTERS[0]).key(k, upTo('hjkl')).locked, 'battle', `${k} must not edit the map`);
 { // walking into a roaming monster starts a fight with that monster
   const w = new World(CHAPTERS[0]), foe = { r: w.r, c: w.c + 1, dr: 0, dc: 0 };
   w.roamers = [foe];
@@ -65,6 +65,7 @@ assert.equal(new World(CHAPTERS[0]).key('i', upTo('hjkl')).locked, 'battle', 'i 
   assert(again.looted && !again.picked.length, 'opened chest is empty');
 }
 assert.deepEqual([...Array(10).keys()].map(replayBonus), [3, 2, 2, 2, 1, 1, 1, 1, 1, 0], '★★★ replay bonus drops 20% a time');
+assert.deepEqual(new World({ map: ['#####', '#@ K#', '#####'] }).roamers, [{ r: 1, c: 3, dr: 0, dc: 1, key: '1,3' }], 'K is a roamer carrying a key');
 console.log('ok: generated rounds, treasure ledger');
 
 // story maps: equal widths, every level has sage+monster, monsters gate the path in order
@@ -75,7 +76,7 @@ CHAPTERS.forEach((ch, ci) => {
   assert.equal(m.join('').split('&').length - 1, ch.npcs.length, `${ch.name} npc count`);
   assert.equal(m.join('').split('L').length - 1, ch.lore.length, `${ch.name} lore keeper count`);
   assert.equal(ch.sages.length, ch.levels.length, `${ch.name} sage count`);
-  assert(m.join('').split('+').length >= m.join('').split('|').length, `${ch.name}: more doors than keys`);
+  assert(m.join('').split(/[+Kh]/).length >= m.join('').split('|').length, `${ch.name}: more doors than keys`);
   ch.levels.forEach(id => { assert(MONSTERS[id], `${id} monster missing`); seen.push(id); });
   const prior = CHAPTERS.slice(0, ci).flatMap(c => c.levels);
   // all cells the hero can stand on, using the real movement rules (roamers off, doors open)
@@ -221,7 +222,8 @@ console.log(`ok: ${VILLAGES.length} villages, ${Object.keys(ITEMS).length} costu
 
 // loot: all the treasure can't buy the best costumes; treasure plus every roamer (even at the 5g minimum) buys the whole shop
 {
-  const chests = [...CHAPTERS, ...VILLAGES].reduce((n, m) => n + new World(m).chests.length, 0) * 10;
+  // every 4th house (from the first) holds a 3g purse
+  const chests = [...CHAPTERS, ...VILLAGES].reduce((n, m) => n + new World(m).chests.length * 10 + Math.ceil((m.map.join('').split('H').length - 1) / 4) * 3, 0);
   const roamers = CHAPTERS.reduce((n, m) => n + new World(m).roamers.length, 0) * 5;
   const prices = Object.values(ITEMS).map(i => i.price), top = Math.max(...prices);
   const best = prices.filter(p => p === top).reduce((a, b) => a + b), all = prices.reduce((a, b) => a + b);

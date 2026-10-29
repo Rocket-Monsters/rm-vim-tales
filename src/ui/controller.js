@@ -42,7 +42,7 @@ export function startGame() {
   }
   const fresh = () => ({ v: 2, ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false, opened: [], replays: {}, lore: [],
     name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang(), text: null,
-    village: false, owned: [], wear: {}, maps: {} });
+    village: false, owned: [], wear: {}, maps: {}, taken: [] });
   let S = fresh();
   try { S = { ...S, ...migrate(JSON.parse(localStorage.getItem(SAVE))) }; } catch {}
   useText(S.text?.lines, S.text?.kind === 'code');
@@ -83,6 +83,7 @@ export function startGame() {
   function loadWorld() {
     if (S.lines && shape(S.lines) !== shape(CH().map)) { S.lines = null; S.pos = null; S.spawn = null; }
     world = new World(CH(), S.lines);
+    for (const m of world.roamers) if (m.key && S.taken.includes(takenId(m.key))) delete m.key;
     CH().levels.forEach((id, i) => { const p = S.best[id] != null && world.find(String.fromCharCode(65 + i)); if (p) world.set(p.r, p.c, ' '); });
     syncChests();
     if (S.pos) world.place(S.pos.r, S.pos.c);
@@ -120,7 +121,13 @@ export function startGame() {
   const note = t => { $('note').textContent = nm(t); };
 
   // ---------- overworld ----------
-  const OBJ = { $: 'chest', _: 'chestOpen', '♥': 'heart', '+': 'key', '|': 'door', '>': 'portal', H: 'house' };
+  const OBJ = { $: 'chest', _: 'chestOpen', '♥': 'heart', '+': 'key', '|': 'door', '>': 'portal', P: 'pine', T: 'oak', '*': 'bush' };
+  // houses take turns in reading order: gold, a bed, a mouse-catching job, then one that stays shut
+  const houseKind = (r, c) => (world.lines.slice(0, r).join('') + world.lines[r].slice(0, c)).split('H').length - 1 & 3;
+  const HOUSES = ['houseGold', 'houseRest', 'houseMice', 'house'];
+  // one-time loot (house purses, key houses, key roamers): "<stage>.<r>,<c>"
+  const takenId = rc => `${stageKey(S.ch, S.village)}.${rc}`;
+  const withKey = (n, has) => has ? `<span class="loot">${img(n)}${img('key', 'carry')}</span>` : img(n);
   function tile(t, r, c) {
     // anything standing in the water sits on a little sand island
     const ch = CH(), v = ((r * 7 + c * 13) ^ (r * c)) & 3, floor = t !== '#' && rowsAround(r, c).includes('~') && !/[ ]/.test(rowsAround(r, c)) ? 'g-isle' : 'g-f' + v;
@@ -132,6 +139,8 @@ export function startGame() {
     // bracket pillars: walkable, and % leaps to the partner
     if ('()[]{}'.includes(t)) return [floor, `<b class="pillar">${t}</b>`];
     if (t === '.') return [rowsAround(r, c).includes('~') ? 'g-isle' : 'g-path' + (v & 1), ''];
+    if (t === 'H') return [floor, img(HOUSES[houseKind(r, c)])];
+    if (t === 'h') return [floor, withKey('house', !S.taken.includes(takenId(r + ',' + c)))];
     if (OBJ[t]) return [floor + (t === '>' ? ' portal' : ''), img(OBJ[t])];
     if (t === '&') return [floor, img(ch.npcs[world.npcAt[r + ',' + c]].spr)];
     // a lore keeper you haven't heard yet shows a bouncing "?"
@@ -158,7 +167,7 @@ export function startGame() {
   const rowsAround = (r, c) => [world.at(r, c - 1), world.at(r, c + 1), world.at(r - 1, c), world.at(r + 1, c)].join('');
 
   function draw() {
-    const ch = CH(), rows = world.lines, ro = new Set(world.roamers.map(m => m.r + ',' + m.c));
+    const ch = CH(), rows = world.lines, ro = new Map(world.roamers.map(m => [m.r + ',' + m.c, m]));
     if (groundOf !== ch) {
       groundOf = ch;
       groundCss.textContent = Object.entries(groundTiles(ch.ground)).map(([k, url]) => `.${k}{background-image:url("${url}")}`).join('\n');
@@ -169,7 +178,7 @@ export function startGame() {
       [...row].forEach((t, c) => {
         let [cls, e] = tile(t, r, c);
         if (r === world.r && c === world.c) e = `<span class="hero">${img('hero', face < 0 ? 'flip' : '')}</span>`;
-        else if (ro.has(r + ',' + c)) e = `<span class="roam">${img(ch.roamer)}</span>`;
+        else if (ro.has(r + ',' + c)) e = `<span class="roam">${withKey(ch.roamer, ro.get(r + ',' + c).key)}</span>`;
         h += `<div class="t ${cls}"${t === '~' ? shore(r, c) : ''}>${e}</div>`;
       });
     });
@@ -269,7 +278,21 @@ export function startGame() {
       if (!S.keys) return note(T().locked);
       S.keys--; world.set(r, c, ' '); note(T().doorOpen);
     }
-    if (t === 'H') note(T().home);
+    if (t === 'H') {
+      const kind = houseKind(r, c), id = takenId(r + ',' + c);
+      if (kind === 0) {
+        if (S.taken.includes(id)) return note(T().houseEmpty);
+        S.taken.push(id); S.gold += 3; save(); draw(); return note(T().houseGold);
+      }
+      if (kind === 1) { S.hearts = Math.max(S.hearts, D_().hearts); save(); draw(); return note(T().houseRest); }
+      if (kind === 2) return say([[T().houseDojoWho, T().houseDojo, 'sensei']], () => startDojo(true));
+      note(T().home);
+    }
+    if (t === 'h') {
+      const id = takenId(r + ',' + c);
+      if (S.taken.includes(id)) return note(T().home);
+      S.taken.push(id); S.keys++; save(); draw(); return note(T().houseKey);
+    }
   }
 
   // every map in story order: chapter 0, its village, chapter 1, ... A map keeps its state (chests taken, doors open) when you leave it
@@ -394,8 +417,9 @@ export function startGame() {
     if (B.foe) {
       const gold = 5 * B.total, name = tx(ROAMERS[CH().roamer]), { roamer } = B.foe;
       world.roamers = world.roamers.filter(r => r !== roamer);
+      if (roamer.key) { S.taken.push(takenId(roamer.key)); S.keys++; }
       S.gold += gold; endBattle(); save(); draw();
-      return say([[T().victory, T().roamWon(name, gold), CH().roamer]], draw);
+      return say([[T().victory, T().roamWon(name, gold) + (roamer.key ? ' ' + T().keyDrop : ''), CH().roamer]], draw);
     }
     const { id, training, keys, par } = B, m = MONSTERS[id], s = stars({ par }, keys), first = S.best[id] == null;
     S.best[id] = Math.max(S.best[id] || 0, s);

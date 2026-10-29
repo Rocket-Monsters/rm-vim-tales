@@ -34,7 +34,8 @@ export interface MapEvent {
   picked: string[]; wait?: boolean; locked?: SpellId | 'unknown' | 'battle';
   bump?: Pos & { t: string | undefined }; blocked?: boolean; foe?: Roamer; exit?: boolean; face?: number; looted?: boolean;
 }
-export interface Roamer extends Pos { dr: number; dc: number }
+// key: "r,c" where a K roamer started, it drops a key when beaten
+export interface Roamer extends Pos { dr: number; dc: number; key?: string }
 
 class World {
   roamers: Roamer[] = [];
@@ -47,10 +48,11 @@ class World {
   constructor(chapter: { map: string[] }, saved?: string[] | null) {
     chapter.map.forEach((row, r) => [...row].forEach((t, c) => {
       if (t === 'M' || t === 'W') this.roamers.push({ r, c, dr: t === 'W' ? 1 : 0, dc: t === 'M' ? 1 : 0 });
+      if (t === 'K') this.roamers.push({ r, c, dr: 0, dc: 1, key: r + ',' + c });
       if (t === '@') this.start = { r, c };
       if (t === '$') this.chests.push({ r, c });
     }));
-    const lines = saved || chapter.map.map(row => row.replace(/[MW@]/g, ' '));
+    const lines = saved || chapter.map.map(row => row.replace(/[MWK@]/g, ' '));
     this.nav = new Vim(lines.join('\n'), true, mapCls);
     let n = 0;
     let l = 0;
@@ -72,7 +74,7 @@ class World {
     const need = needs(cmd);
     const onMap = (s: SpellId) => MOVE_SPELLS.includes(s) || (s === 'around' && k === '%');
     const lock = !need.length && !/^[1-9]\d*$/.test(cmd) ? 'unknown'
-      : need.find(s => !onMap(s)) || cmd === 'i' || cmd === 'u' ? 'battle' : need.find(s => !learned.has(s));
+      : need.find(s => !onMap(s)) || /^[iau]$/.test(cmd) ? 'battle' : need.find(s => !learned.has(s));
     if (lock) { v.pending = ''; ev.locked = lock; return ev; }
     const walk = cmd.match(/^([1-9]\d*)?([hjkl])$/);
     if (walk) {
