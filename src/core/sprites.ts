@@ -185,6 +185,22 @@ const ART: Record<string, string[]> = {
     'uuuuuuuuuuuuuuuu', '..yyyyyyyyyyyz', '..yccyyyyklkyz', '..y1cyyyyklkyz', '..yyyyyyyklkyz', '..yyyyyyykmkyz',
     '..zzzzzzzklkzz', '..nnnnnnnnnnnn',
   ],
+  // open houses, one look per kind: gold under the thatch, a bed by the chimney, mice in the log cabin
+  houseGold: [
+    '', '......4444', '....44a9a944', '...4a9a9a9a94', '..4a9a9a9a9a94', '.4a9a9a9a9a9a94', '4444444444444444',
+    '.ssssssssssssso', '.sr1c1rs0a00rso', '.sr1c1rs00a0rso', '.srrrrrs0aa0rso', '.sssssss0000sso', '.rrrrrrr0000rro', '.oooooooooooooo',
+    '..nnnnnnnnnnnn',
+  ],
+  houseRest: [
+    '...........7', '..........6', '.......11..55', '......1cc1.55', '.....1cccc155', '....1cccccc1', '...1cccccccc1',
+    '..1cccccccccc1', '.11111111111111', '..yyyyyyyyyyyz', '..yaayyyy077yz', '..y99yyyy088yz', '..yyyyyyy088yz', '..zzzzzzz088zz',
+    '..nnnnnnnnnnnn',
+  ],
+  houseMice: [
+    '', '', '.....hhhhhh', '....hijjjjih', '...hijijjijih', '..hiijjiijjiih', '.hhhhhhhhhhhhhh',
+    '..mmmmmmmmmmmm', '..mkcckmm000mm', '..lc7ccll0a0ll', '..mkcckmm000mm', '..lllllll000ll', '..mmmmmmm0e0mm', '..kkkkkkk666kk',
+    '..nnnnnnnnnnnn',
+  ],
   // ---------- village ----------
   bush: [
     '', '', '....iiiiiiii', '..iijjiiiiiiii', '.iijjiieiiiiaii', '.iiiiiiiiiiiiii', 'iieiiiiijjiiiiii', 'iiiiiiaiiiiieiii',
@@ -287,7 +303,7 @@ const paint = (rows: string[], color: (ch: string) => string) => rows.map(r => [
 const mix = (a: string, b: string, t: number) =>
   '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - t) + parseInt(b.slice(i, i + 2), 16) * t).toString(16).padStart(2, '0')).join('');
 // map scenery is drawn pre-shaded; characters, monsters and items get a dark outline, lit from the top left
-const SCENERY = new Set(['pine', 'oak', 'reed', 'boulder', 'brick', 'house', 'door', 'portal', 'bush']);
+const SCENERY = new Set(['pine', 'oak', 'reed', 'boulder', 'brick', 'house', 'houseGold', 'houseRest', 'houseMice', 'door', 'portal', 'bush']);
 const OUTLINE = '#1a1220';
 function pixels(name: string): string[][] {
   const g = grid(name), on = (x: number, y: number) => (g[y]?.[x] ?? '.') !== '.', fx = !SCENERY.has(name);

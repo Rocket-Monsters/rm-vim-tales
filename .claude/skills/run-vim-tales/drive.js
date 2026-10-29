@@ -24,7 +24,7 @@ const send = (method, params = {}) => new Promise(r => { waiting.set(++id, r); w
 await send('Runtime.enable'); await send('Page.enable');
 await send('Emulation.setDeviceMetricsOverride', { width: 1400, height: 900, deviceScaleFactor: 1, mobile: false });
 await send('Page.navigate', { url: process.env.URL || 'http://localhost:5173/' }); await Bun.sleep(2500);
-const KEY = { Enter: ['Enter', 13], Esc: ['Escape', 27] };
+const KEY = { Enter: ['Enter', 13], Esc: ['Escape', 27], Space: [' ', 32] };
 let shot = 0;
 for (const s of steps) {
   if (s === 'SHOT') {
@@ -35,7 +35,7 @@ for (const s of steps) {
   }
   for (const k of s.split(' ')) {
     const [key, code] = KEY[k] || [k, k.charCodeAt(0)];
-    await send('Input.dispatchKeyEvent', { type: 'keyDown', key, windowsVirtualKeyCode: code, ...(KEY[k] ? {} : { text: k }) });
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key, windowsVirtualKeyCode: code, ...(KEY[k] && k !== 'Space' ? {} : { text: KEY[k]?.[0] ?? k }) });
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key, windowsVirtualKeyCode: code });
     await Bun.sleep(120);
   }

@@ -46,6 +46,8 @@
   .hero { display:inline-block; animation:bob .5s ease-in-out infinite alternate; z-index:1; filter:drop-shadow(0 2px 0 #0008); line-height:0; }
   .roam, .foe-tile .spr { line-height:0; }
   .roam { animation:wiggle .4s steps(2) infinite; }
+  .loot { position:relative; display:inline-block; line-height:0; }
+  .loot .carry { position:absolute; right:-15%; bottom:-10%; width:calc(var(--t) * .6); height:calc(var(--t) * .6); }
   .foe-tile { animation:wiggle .8s steps(2) infinite; }
   @keyframes bob { to { translate:0 -3px; } }
   @keyframes wiggle { 50% { rotate:-8deg; } }
