@@ -245,3 +245,14 @@ console.log(`ok: ${VILLAGES.length} villages, ${Object.keys(ITEMS).length} costu
 // undo is innate: usable from the first battle on
 assert.equal(locked(new Vim('ab'), 'u', new Set(['hjkl'])), null, 'u must be unlocked from the start');
 { const v = new Vim('ab'); v.key('x'); v.key('u'); assert.equal(v.text, 'ab', 'u undoes'); }
+
+// music: every loop's bass covers its lead (one bass note per two eighths) and every note parses
+import { TRACKS, freq } from '../src/ui/sfx.js';
+assert.equal(freq('A4'), 440);
+assert.equal(Object.keys(TRACKS).filter(k => /^ch\d$/.test(k)).length, CHAPTERS.length);
+for (const [id, { lead, bass }] of Object.entries(TRACKS)) {
+  const l = lead.split(' '), b = bass.split(' ');
+  assert.equal(l.length, 2 * b.length, `${id}: ${l.length} lead eighths vs ${b.length} bass quarters`);
+  for (const n of [...l, ...b]) assert(n === '-' || freq(n), `${id}: bad note ${n}`);
+}
+console.log(`ok: ${Object.keys(TRACKS).length} music loops`);
