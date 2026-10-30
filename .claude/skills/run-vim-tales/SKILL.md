@@ -21,7 +21,7 @@ for i in $(seq 30); do curl -sf http://localhost:5173 >/dev/null && echo up && b
 ## 2. Drive it
 
 `bun .claude/skills/run-vim-tales/drive.js <out-dir> <step>...`. Each step is `SHOT` or a
-space-separated key list (`Enter`, `Esc`, or single characters). It prints each screenshot path and
+space-separated key list (`Enter`, `Esc`, `Space`, or single characters). It prints each screenshot path and
 any console errors. Each run starts from a fresh browser profile (no save), so the title menu shows "New game" first.
 
 Known sequences:
@@ -29,7 +29,8 @@ Known sequences:
 | Goal | Steps |
 |---|---|
 | Title menu | `SHOT` |
-| New game → chapter I map (name, difficulty, skip tutorial, click through intro) | `"Enter Enter Enter" Esc "Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter" SHOT` |
+| New game → chapter I map (name, difficulty, text; the z's wait out the text download; Esc skips the tutorial; Enters click through intro) | `"Enter Enter Enter Enter" "z z z z z z z z z z z z z z z z z z z z" Esc "Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter Enter" SHOT` |
+| Then jump to a village (dev only; `Space` types a space) | `": c h Space 1 v Enter" "Enter Enter Enter Enter Enter Enter Enter Enter" SHOT` |
 | Then the lesson index | `": l e s s o n s Enter" SHOT` |
 | Then move down the index | `"j j j" SHOT` |
 | Run any : command | `": h e l p Enter" SHOT` |
