@@ -222,6 +222,7 @@ class Vim {
       if (line[i] === cl && i !== c) d++;
       else if (line[i] === o) { if (!d) { s = i; break; } d--; }
     }
+    if (s < 0) s = line.indexOf(o, c); // not inside a pair: like quotes, use the next one on the line
     if (s < 0) return null;
     d = 0;
     for (let i = s + 1; i < line.length; i++) {
