@@ -18,6 +18,7 @@ assert.equal(t('a b c', 'xu.'), ' b c');
 assert.equal(t('hello', 'A!<Esc>0.'), 'hello!!');
 assert.equal(t('say (a, b) ok', 'fbdi('), 'say () ok');
 assert.equal(t('x "abc" y', 'ci"Z<Esc>'), 'x "Z" y');
+assert.equal(t('f(a) (b)', 'ci(Z<Esc>'), 'f(Z) (b)', 'ci( outside parens uses the next pair');
 assert.equal(t('a\nb\nc', 'jddp'), 'a\nc\nb');
 assert.equal(t('a-b-c-d', 't-;;D'), 'a-b-');
 assert.equal(t('one two three', 'wdaw'), 'one three');

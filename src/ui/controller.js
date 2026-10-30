@@ -42,7 +42,7 @@ export function startGame() {
     return { ...s, v: 2 };
   }
   const fresh = () => ({ v: 2, ch: 0, lines: null, pos: null, spawn: null, learned: [], best: {}, seen: [], hearts: 3, gold: 0, keys: 0, done: false, opened: [], replays: {}, lore: [],
-    name: 'Prompt', diff: 'normal', dojo: 0, lang: browserLang(), text: null,
+    name: 'CXRom', diff: 'normal', dojo: 0, lang: browserLang(), text: null,
     village: false, owned: [], wear: {}, maps: {}, taken: [] });
   let S = fresh();
   try { S = { ...S, ...migrate(JSON.parse(localStorage.getItem(SAVE))) }; } catch {}
@@ -61,6 +61,8 @@ export function startGame() {
     return es ? { ...l, title: es[0], learn: es[1], keys: l.keys.map(([k, d], i) => [k, es[2][i] ?? d]) } : l;
   } });
   const learnedSet = () => new Set(['hjkl', ...S.learned]);
+  // :dev unlocks every spell, so any command works without learning it first
+  const unlocked = () => (document.body.classList.contains('dev') ? new Set(LEVELS.map(l => l.id)) : learnedSet());
   const level = () => 1 + Object.keys(S.best).length;
   const spellKeys = id => LV[id].keys.map(k => k[0]).join(' ');
   function save() {
@@ -216,7 +218,7 @@ export function startGame() {
     if (k === '<CR>' || k === '<BS>') return;
     if (k.startsWith('Arrow')) return note(T().arrowCurse);
     const from = { r: world.r, c: world.c };
-    const ev = world.key(k, learnedSet());
+    const ev = world.key(k, unlocked());
     if (ev.wait) return draw();
     note('');
     if (ev.locked === 'unknown') note(S.ch ? T().nothing : T().nothingWalk);
@@ -386,7 +388,7 @@ export function startGame() {
     if (B.state === 'lost') { if (k === '<CR>') B.foe ? roamerLost() : startBattle(B.id, B.training); return; }
     if (B.state !== 'fight') return;
     if (k.startsWith('Arrow')) { if (!B.practice) B.hp -= 3; B.note = T().arrowBurn; sfx('ouch'); hit('meIcon'); return afterHit(); }
-    const miss = locked(B.run.vim, k, learnedSet());
+    const miss = locked(B.run.vim, k, unlocked());
     if (miss) { B.run.vim.pending = ''; B.note = T().notLearnedB(LV[miss].title); return renderBattle(); }
     const before = roundLeft();
     B.run.press(k);
@@ -516,7 +518,7 @@ export function startGame() {
       case 'h': case 'help': {
         if (!arg) return toggleDrawer(true);
         const lv = findSpell(arg);
-        if (!lv || !S.learned.includes(lv.id)) return err(T().noHelp(arg));
+        if (!lv || !unlocked().has(lv.id)) return err(T().noHelp(arg));
         const l = LV[lv.id];
         return say([[l.title, l.learn, 'elder'], [T().keys, l.keys.map(([k, d]) => (d ? `${k} ${d}` : k)).join(' · '), 'elder']]);
       }
@@ -566,7 +568,7 @@ export function startGame() {
         if (notInBattle()) return;
         if (!arg) return wizard(onboard());
         const lv = findSpell(arg);
-        if (!lv || lv.id === 'boss' || !(lv.id === 'hjkl' || S.learned.includes(lv.id))) return err(T().noLesson(arg));
+        if (!lv || lv.id === 'boss' || !unlocked().has(lv.id)) return err(T().noLesson(arg));
         return teach(lv.id);
       }
       case 'dojo': return notInBattle() || startDojo();
@@ -589,11 +591,11 @@ export function startGame() {
         if (!CHAPTERS[n - 1]) return err(`:ch 1-${CHAPTERS.length}, or 1v-${CHAPTERS.length}v for a village`);
         return goTo(n - 1, !!v);
       }
-      // dev only: the map scrolls freely and a click drops the hero on any walkable tile
+      // dev only: every spell unlocked, the map scrolls freely and a click drops the hero on any walkable tile
       case 'dev':
         if (!import.meta.env.DEV) return err(T().notCmd(c));
         document.body.classList.toggle('dev');
-        return showCmd(document.body.classList.contains('dev') ? 'dev on: scroll the map, click a tile to jump there' : 'dev off');
+        return showCmd(document.body.classList.contains('dev') ? 'dev on: all spells unlocked, scroll the map, click a tile to jump there' : 'dev off');
       default: return err(T().notCmd(c));
     }
   }
@@ -611,7 +613,7 @@ export function startGame() {
       ...(started() ? [['lessons', T().idxOpt, T().idxSub]] : []),
       ['dojo', T().dojo, T().dojoSub(S.dojo)],
       ['lang', T().langOpt, T().langSub]];
-  function showMenu(step = 'main') { M = { step, i: 0, name: '', langs: [] }; $('menu').hidden = false; renderMenu(); }
+  function showMenu(step = 'main') { M = { step, i: 0, name: 'CXRom', langs: [] }; $('menu').hidden = false; renderMenu(); }
   const MENU_H = { diff: () => T().chooseLevel(M.name), text: () => T().textQ, langs: () => T().langsQ };
   function renderMenu() {
     $('mHelp').textContent = M.step === 'langs' ? T().langsHelp : T().menuHelp;
@@ -623,7 +625,7 @@ export function startGame() {
   function menuKey(k) {
     if (M.step === 'loading') return;
     if (M.step === 'name') {
-      if (k === '<CR>') { M.name = M.name.trim() || 'Prompt'; M.step = 'diff'; M.i = 1; }
+      if (k === '<CR>') { M.name = M.name.trim() || 'CXRom'; M.step = 'diff'; M.i = 1; }
       else if (k === '<Esc>') { M.step = 'main'; M.i = 0; }
       else if (k === '<BS>') M.name = M.name.slice(0, -1);
       else if (k.length === 1 && M.name.length < 12) M.name += k;
