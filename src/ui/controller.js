@@ -6,6 +6,7 @@ import { CHAPTERS, VILLAGES, ITEMS, MONSTERS, ROAMERS, ENDING } from '../core/st
 import { sprite, outfit, groundTiles, NAMES } from '../core/sprites.ts';
 import { CODE_LANGS, download } from '../core/text.ts';
 import { UI, LESSONS_ES, fingers } from './i18n.js';
+import { sfx, toggleSound, music, toggleMusic } from './sfx.js';
 
 // starts the game on the mounted markup, returns a cleanup
 export function startGame() {
@@ -167,6 +168,7 @@ export function startGame() {
   const rowsAround = (r, c) => [world.at(r, c - 1), world.at(r, c + 1), world.at(r - 1, c), world.at(r + 1, c)].join('');
 
   function draw() {
+    if (!B) music(S.village ? 'v' + S.ch : 'ch' + S.ch);
     const ch = CH(), rows = world.lines, ro = new Map(world.roamers.map(m => [m.r + ',' + m.c, m]));
     if (groundOf !== ch) {
       groundOf = ch;
@@ -223,9 +225,9 @@ export function startGame() {
     if (ev.face) face = ev.face;
     if (ev.blocked) note(T().cantLand);
     for (const t of ev.picked) {
-      if (t === '$') { S.gold += 10; note(T().gold); syncChests(); }
-      if (t === '♥') { S.hearts = Math.min(MAX_HEARTS, S.hearts + 1); note(T().heal); }
-      if (t === '+') { S.keys++; note(T().keyFound); }
+      if (t === '$') { sfx('gold'); S.gold += 10; note(T().gold); syncChests(); }
+      if (t === '♥') { sfx('heart'); S.hearts = Math.min(MAX_HEARTS, S.hearts + 1); note(T().heal); }
+      if (t === '+') { sfx('key'); S.keys++; note(T().keyFound); }
     }
     if (ev.looted) note(T().looted);
     if (ev.foe) { save(); draw(); return encounter(ev.foe); }
@@ -240,7 +242,7 @@ export function startGame() {
   }
 
   function hurt() {
-    S.hearts--;
+    sfx('hurt'); S.hearts--;
     $('flash').style.opacity = .5; setTimeout(() => { $('flash').style.opacity = 0; }, 150);
     if (S.hearts <= 0) {
       S.hearts = D_().hearts; world.place(world.start.r, world.start.c);
@@ -258,7 +260,7 @@ export function startGame() {
       const sage = ch.sages[t.charCodeAt(0) - 97], id = ch.levels[t.charCodeAt(0) - 97];
       if (S.learned.includes(id)) return say([person(sage, LV[id].learn)]);
       return say([...sage.say.map(s => person(sage, tx(s))), person(sage, LV[id].learn), [T().newSpell, `${LV[id].title}: ${spellKeys(id)}`, 'chest']], () => {
-        S.learned.push(id); S.spawn = { r: world.r, c: world.c }; save(); draw();
+        sfx('learn'); S.learned.push(id); S.spawn = { r: world.r, c: world.c }; save(); draw();
         if (id !== 'boss') teach(id);
       });
     }
@@ -276,13 +278,13 @@ export function startGame() {
     }
     if (t === '|') {
       if (!S.keys) return note(T().locked);
-      S.keys--; world.set(r, c, ' '); note(T().doorOpen);
+      sfx('door'); S.keys--; world.set(r, c, ' '); note(T().doorOpen);
     }
     if (t === 'H') {
       const kind = houseKind(r, c), id = takenId(r + ',' + c);
       if (kind === 0) {
         if (S.taken.includes(id)) return note(T().houseEmpty);
-        S.taken.push(id); S.gold += 3; save(); draw(); return note(T().houseGold);
+        sfx('gold'); S.taken.push(id); S.gold += 3; save(); draw(); return note(T().houseGold);
       }
       if (kind === 1) { S.hearts = Math.max(S.hearts, D_().hearts); save(); draw(); return note(T().houseRest); }
       if (kind === 2) return say([[T().houseDojoWho, T().houseDojo, 'sensei']], () => startDojo(true));
@@ -291,7 +293,7 @@ export function startGame() {
     if (t === 'h') {
       const id = takenId(r + ',' + c);
       if (S.taken.includes(id)) return note(T().home);
-      S.taken.push(id); S.keys++; save(); draw(); return note(T().houseKey);
+      sfx('key'); S.taken.push(id); S.keys++; save(); draw(); return note(T().houseKey);
     }
   }
 
@@ -346,6 +348,7 @@ export function startGame() {
     $('meName').textContent = `${S.name.toUpperCase()}  ${S.lang === 'es' ? 'NV' : 'LV'} ${level()}`;
     $('bHelp').textContent = practice ? T().practiceHelp : T().battleHelp;
     $('battle').hidden = false;
+    music(id === 'boss' && !foe ? 'boss' : 'battle');
     newRound();
   }
   function newRound() {
@@ -373,7 +376,7 @@ export function startGame() {
     $('bTime').style.width = (left / (B.secs * 1000)) * 100 + '%';
     $('bTime').parentElement.classList.toggle('low', left < B.secs * 250);
     $('bClock').textContent = `⏱ ${Math.ceil(left / 1000)}s`;
-    if (!left) { B.state = 'lost'; B.note = T().timeUp + ' ' + lostNote(); renderBattle(); }
+    if (!left) { sfx('lose'); B.state = 'lost'; B.note = T().timeUp + ' ' + lostNote(); renderBattle(); }
   }
   const lostNote = () => (B.foe ? T().lostRoam : T().lost);
   function endBattle() { clearInterval(B.timer); $('battle').hidden = true; B = null; }
@@ -382,19 +385,19 @@ export function startGame() {
   function battleKey(k) {
     if (B.state === 'lost') { if (k === '<CR>') B.foe ? roamerLost() : startBattle(B.id, B.training); return; }
     if (B.state !== 'fight') return;
-    if (k.startsWith('Arrow')) { if (!B.practice) B.hp -= 3; B.note = T().arrowBurn; hit('meIcon'); return afterHit(); }
+    if (k.startsWith('Arrow')) { if (!B.practice) B.hp -= 3; B.note = T().arrowBurn; sfx('ouch'); hit('meIcon'); return afterHit(); }
     const miss = locked(B.run.vim, k, learnedSet());
     if (miss) { B.run.vim.pending = ''; B.note = T().notLearnedB(LV[miss].title); return renderBattle(); }
     const before = roundLeft();
     B.run.press(k);
     B.note = B.run.vim.msg;
-    if (B.run.keys > B.lv.par && !B.practice) { B.hp--; hit('meIcon'); }
-    if (roundLeft() < before) hit('foeIcon');
+    if (B.run.keys > B.lv.par && !B.practice) { B.hp--; sfx('ouch'); hit('meIcon'); }
+    if (roundLeft() < before) { sfx('hit'); hit('foeIcon'); }
     if (B.run.done) return roundWon();
     afterHit();
   }
   function afterHit() {
-    if (B.hp <= 0) { B.hp = 0; B.state = 'lost'; B.note = lostNote(); }
+    if (B.hp <= 0) { sfx('lose'); B.hp = 0; B.state = 'lost'; B.note = lostNote(); }
     renderBattle();
   }
   function roundWon() {
@@ -404,6 +407,7 @@ export function startGame() {
       endBattle(); draw();
       return say([person(sage, T().practiceDone(LV[id].title))], draw);
     }
+    sfx(B.round + 1 >= B.total ? 'win' : 'round');
     B.keys += B.run.keys; B.par += B.lv.par; B.round++;
     B.state = 'pause';
     B.note = B.round >= B.total ? T().finalBlow : T().cleared(B.round, B.run.keys <= B.lv.par);
@@ -569,6 +573,8 @@ export function startGame() {
       case 'travel': case 'tr': return notInBattle() || openBooth('travel');
       case 'lessons': case 'index': case 'ls': return notInBattle() || openIndex();
       case 'menu': return notInBattle() || showMenu();
+      case 'sound': return showCmd(toggleSound() ? T().soundOn : T().soundOff);
+      case 'music': return showCmd(toggleMusic() ? T().musicOn : T().musicOff);
       case 'w': save(); return showCmd(T().written);
       case 'wq': case 'x': save(); return showCmd(T().seeYou);
       case 'new': return err(T().newNo);
@@ -754,7 +760,7 @@ export function startGame() {
     if (k.length !== 1) return;
     const t = want(D.cur[0]);
     D.buf += k;
-    if (D.buf === t) { D.score++; hit('dMouse'); return nextMouse(); }
+    if (D.buf === t) { sfx('blip'); D.score++; hit('dMouse'); return nextMouse(); }
     if (!t.startsWith(D.buf)) D.buf = '';
     renderDojo();
   }
