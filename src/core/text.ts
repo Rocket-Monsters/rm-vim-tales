@@ -14,6 +14,12 @@ export const usable = (l: string) => l.length >= 12 && l.length <= MAX && /^[ -~
 export const wrap = (s: string) => (s.replace(/\s+/g, ' ').match(new RegExp(`\\S.{0,${MAX - 1}}(?=\\s|$)`, 'g')) || []).map(l => l.trim());
 export const clean = (raw: string[]) => sample(Math.random, [...new Set(raw.map(l => l.trim()).filter(usable))], KEEP);
 
+// code rounds are code only: block comments / docstrings, then line comments (# for py and php, never #[ attributes)
+// ponytail: regex, not a lexer; a comment marker inside a string literal gets cut too
+export const uncomment = (src: string, id: string) => src
+  .replace(id === 'py' ? /("""|''')[\s\S]*?\1/g : /\/\*[\s\S]*?\*\//g, '')
+  .replace(id === 'py' ? /(^|[ \t])#.*$/gm : id === 'php' ? /(^|[ \t])(\/\/|#(?!\[)).*$/gm : /(^|[ \t])\/\/.*$/gm, '');
+
 const get = (url: string) => fetch(url, { signal: AbortSignal.timeout(10000) }).then(r => { if (!r.ok) throw new Error(`${r.status} ${url}`); return r; });
 
 async function snippets(id: string) {
@@ -21,7 +27,7 @@ async function snippets(id: string) {
   const { files } = await (await get(`https://data.jsdelivr.com/v1/packages/gh/${base}?structure=flat`)).json();
   const src = (files as { name: string }[]).map(f => f.name).filter(n => n.endsWith('.' + ext) && !/test/i.test(n));
   const texts = await Promise.all(sample(Math.random, src, FILES).map(n => get(`https://cdn.jsdelivr.net/gh/${base}${n}`).then(r => r.text())));
-  return texts.flatMap(t => t.split('\n'));
+  return texts.flatMap(t => uncomment(t, id).split('\n'));
 }
 
 // [] when nothing came through: the game then keeps its built-in text
