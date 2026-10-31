@@ -189,7 +189,11 @@ console.log(`ok: ${NAMES.length} sprites, en/es text, fingers`);
 
 // downloaded text: rounds cut from code/quotes still solve (or fall back to built-in text)
 import { useText } from '../src/core/game.ts';
-import { usable, wrap } from '../src/core/text.ts';
+import { usable, wrap, uncomment } from '../src/core/text.ts';
+assert.equal(uncomment('/** doc\n * x */\nlet a = 1; // one\n// two\nurl("http://x")', 'ts'), '\nlet a = 1;\n\nurl("http://x")');
+assert.equal(uncomment('"""doc"""\nx = 1  # one\n# two', 'py'), '\nx = 1 \n');
+assert.equal(uncomment('#[Attr]\n$a = 1; # one\n$b = 2; // two', 'php'), '#[Attr]\n$a = 1;\n$b = 2;');
+assert.equal(uncomment('#include <x>\nint a; // b', 'cpp'), '#include <x>\nint a;');
 assert.deepEqual(wrap('a  b\nc'), ['a b c']);
 assert(wrap('x'.repeat(10) + ' y'.repeat(40)).every(l => l.length <= 44));
 assert(!usable('\tif (x) {') && !usable('short') && usable('let mut n = arr.len();'));
