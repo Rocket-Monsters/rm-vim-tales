@@ -28,7 +28,7 @@ const upTo = (id: SpellId) => new Set(['hjkl', ...LEVELS.slice(0, LEVELS.findInd
 const WALK = ' .o=$♥+>_()[]{}';
 // a map's ':' becomes this hidden wall: drawn as wall, but blank for gg / G (they land on a line's first non-blank tile)
 export const HIDDEN = '\u00a0';
-const mapCls = (ch: string | undefined) => (ch !== undefined && ' .o~_'.includes(ch) ? 0 : ch === '=' ? 1 : 2);
+const mapCls = (ch: string | undefined) => (ch !== undefined && '~'.includes(ch) ? 0 : ch === '=' ? 1 : 2);
 const DIRS: Record<string, [number, number]> = { h: [0, -1], j: [1, 0], k: [-1, 0], l: [0, 1] };
 
 // one key on the map → what happened
